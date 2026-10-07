@@ -34,6 +34,26 @@ pub struct ManifestFile {
     pub addon_group: Option<String>,
     pub size_bytes: u64,
     pub sha256: String,
+    /// Exactamente uno de `source`/`assembly` debe estar presente (decisión 0003):
+    /// un archivo se descarga de una pieza o se ensambla a partir de fragmentos.
+    #[serde(default)]
+    pub source: Option<FileSource>,
+    #[serde(default)]
+    pub assembly: Option<Assembly>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Assembly {
+    pub part_size_bytes: u64,
+    pub parts: Vec<AssemblyPart>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AssemblyPart {
+    pub sha256: String,
+    pub size_bytes: u64,
     pub source: FileSource,
 }
 
@@ -190,11 +210,45 @@ fn validate_manifest(manifest: &mut Manifest) -> Result<(), ManifestError> {
                 file.path
             )));
         }
-        if !file.source.url.starts_with("https://") {
-            return Err(ManifestError::InvalidField(format!(
-                "source.url de {}",
-                file.path
-            )));
+        match (&file.source, &file.assembly) {
+            (Some(source), None) => {
+                if !source.url.starts_with("https://") {
+                    return Err(ManifestError::InvalidField(format!(
+                        "source.url de {}",
+                        file.path
+                    )));
+                }
+            }
+            (None, Some(assembly)) => {
+                if assembly.parts.is_empty() {
+                    return Err(ManifestError::InvalidField(format!(
+                        "assembly.parts de {} no puede estar vacío",
+                        file.path
+                    )));
+                }
+                for part in &assembly.parts {
+                    if part.sha256.len() != 64
+                        || !part.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    {
+                        return Err(ManifestError::InvalidField(format!(
+                            "sha256 de fragmento de {}",
+                            file.path
+                        )));
+                    }
+                    if !part.source.url.starts_with("https://") {
+                        return Err(ManifestError::InvalidField(format!(
+                            "source.url de fragmento de {}",
+                            file.path
+                        )));
+                    }
+                }
+            }
+            (Some(_), Some(_)) | (None, None) => {
+                return Err(ManifestError::InvalidField(format!(
+                    "{} debe declarar exactamente uno de source/assembly",
+                    file.path
+                )));
+            }
         }
         match (file.kind, file.addon_group.as_deref()) {
             (FileKind::Addon, Some(group)) if !group.trim().is_empty() => {}
@@ -236,10 +290,8 @@ pub fn validate_source_hosts(
     manifest: &Manifest,
     allowed_hosts: &[&str],
 ) -> Result<(), ManifestError> {
-    for file in &manifest.files {
-        let authority = file
-            .source
-            .url
+    fn check(url: &str, allowed_hosts: &[&str], path: &str) -> Result<(), ManifestError> {
+        let authority = url
             .strip_prefix("https://")
             .and_then(|url| url.split(['/', '?', '#']).next())
             .filter(|authority| !authority.is_empty() && !authority.contains('@'));
@@ -254,9 +306,21 @@ pub fn validate_source_hosts(
                 .any(|allowed| host.eq_ignore_ascii_case(allowed))
         }) {
             return Err(ManifestError::InvalidField(format!(
-                "host de source.url no permitido para {}",
-                file.path
+                "host de source.url no permitido para {path}"
             )));
+        }
+        Ok(())
+    }
+
+    for file in &manifest.files {
+        match (&file.source, &file.assembly) {
+            (Some(source), _) => check(&source.url, allowed_hosts, &file.path)?,
+            (None, Some(assembly)) => {
+                for part in &assembly.parts {
+                    check(&part.source.url, allowed_hosts, &file.path)?;
+                }
+            }
+            (None, None) => {}
         }
     }
     Ok(())
@@ -612,6 +676,102 @@ mod tests {
         assert_eq!(manifest.realm, "icetracks");
         assert_eq!(manifest.files[0].role, FileRole::Required);
         assert_eq!(manifest.files[0].kind, FileKind::ClientPatch);
+    }
+
+    fn sign_document(mut document: Value, signing_key: &SigningKey) -> Vec<u8> {
+        let canonical = canonical_json(&document);
+        let signature = signing_key.sign(&canonical);
+        document["signature"] = serde_json::json!({
+            "keyId": "test-key",
+            "algorithm": "ed25519",
+            "value": signature.to_bytes().iter().map(|byte| format!("{byte:02x}")).collect::<String>()
+        });
+        serde_json::to_vec(&document).unwrap()
+    }
+
+    #[test]
+    fn parses_manifest_with_assembled_file() {
+        let signing_key = SigningKey::from_bytes(&[9; 32]);
+        let document = serde_json::json!({
+            "schemaVersion": 1,
+            "realm": "icetracks",
+            "channel": "production",
+            "clientBuild": 12340,
+            "manifestVersion": 1,
+            "publishedAt": "2026-10-07T12:00:00Z",
+            "minLauncherVersion": "1.0.0",
+            "files": [{
+                "path": "Data/client-base.pkg",
+                "role": "required",
+                "kind": "clientBase",
+                "sizeBytes": 4000000000_u64,
+                "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "assembly": {
+                    "partSizeBytes": 2000000000,
+                    "parts": [
+                        {
+                            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+                            "sizeBytes": 2000000000,
+                            "source": { "url": "https://example.com/part-000", "compressedSizeBytes": 2000000000, "compression": "none" }
+                        },
+                        {
+                            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+                            "sizeBytes": 2000000000,
+                            "source": { "url": "https://example.com/part-001", "compressedSizeBytes": 2000000000, "compression": "none" }
+                        }
+                    ]
+                }
+            }]
+        });
+        let document = sign_document(document, &signing_key);
+        let keys = BTreeMap::from([("test-key".into(), signing_key.verifying_key())]);
+        let manifest = parse_manifest(&document, &keys).unwrap();
+        let assembly = manifest.files[0].assembly.as_ref().unwrap();
+        assert!(manifest.files[0].source.is_none());
+        assert_eq!(assembly.parts.len(), 2);
+        assert!(validate_source_hosts(&manifest, &["example.com"]).is_ok());
+        assert!(validate_source_hosts(&manifest, &["other.com"]).is_err());
+    }
+
+    #[test]
+    fn rejects_file_declaring_both_or_neither_source_and_assembly() {
+        let signing_key = SigningKey::from_bytes(&[11; 32]);
+        let base_file = serde_json::json!({
+            "path": "Data/ambiguous.pkg",
+            "role": "required",
+            "kind": "clientBase",
+            "sizeBytes": 10,
+            "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        });
+
+        let mut neither = base_file.clone();
+        let document = serde_json::json!({
+            "schemaVersion": 1, "realm": "icetracks", "channel": "production",
+            "clientBuild": 12340, "manifestVersion": 1,
+            "publishedAt": "2026-10-07T12:00:00Z", "minLauncherVersion": "1.0.0",
+            "files": [neither.take()]
+        });
+        let document = sign_document(document, &signing_key);
+        let keys = BTreeMap::from([("test-key".into(), signing_key.verifying_key())]);
+        assert!(matches!(
+            parse_manifest(&document, &keys),
+            Err(ManifestError::InvalidField(_))
+        ));
+
+        let mut both = base_file;
+        both["source"] = serde_json::json!({ "url": "https://example.com/x", "compressedSizeBytes": 1, "compression": "none" });
+        both["assembly"] = serde_json::json!({ "partSizeBytes": 1, "parts": [] });
+        let document = serde_json::json!({
+            "schemaVersion": 1, "realm": "icetracks", "channel": "production",
+            "clientBuild": 12340, "manifestVersion": 1,
+            "publishedAt": "2026-10-07T12:00:00Z", "minLauncherVersion": "1.0.0",
+            "files": [both]
+        });
+        let document = sign_document(document, &signing_key);
+        assert!(matches!(
+            parse_manifest(&document, &keys),
+            Err(ManifestError::InvalidField(_))
+        ));
     }
 
     #[test]
