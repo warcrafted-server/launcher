@@ -27,3 +27,4 @@ agentrelay.config.json
 
 # Volcados de datos de sesión, no versionados (ver docs/ESTADO.md)
 docs/arbol-cliente.csv
+docs/hashes-cliente.csv
