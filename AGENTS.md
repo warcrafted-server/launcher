@@ -22,20 +22,12 @@ implementación, revisar críticamente. No se da por bueno un resultado solo por
 Igual que el resto del repo: documentación, commits, comentarios e informes en **castellano**.
 Identificadores de código en **inglés**.
 
-## 2. Fase actual: investigación y decisión de stack (obligatoria antes de implementar)
+## 2. Fase actual: implementación del núcleo de actualización
 
-**No hay stack tecnológico fijado todavía.** Antes de escribir código de producto:
-
-1. Investigar (delegado al ejecutor, para ahorrar contexto del orquestador) proyectos
-   existentes: launchers de AzerothCore/WoW 3.3.5, sistemas de autoactualización y manifest,
-   distribución incremental de archivos, gestores de addons, launchers profesionales de
-   videojuegos, y las opciones de UI de escritorio relevantes (p. ej. Tauri, Electron,
-   .NET/WPF/Avalonia u otras que surjan) con sus licencias, tamaño de binario, story de
-   auto-actualización y seguridad por proceso.
-2. El orquestador evalúa los hallazgos, decide el stack y lo registra como decisión en
-   `docs/decisiones/0001-stack-tecnologico.md` (mismo formato que las decisiones del repo raíz:
-   fecha, contexto, alternativas consideradas, elección, motivo).
-3. Solo entonces se empieza a implementar.
+Stack decidido (0001: Tauri 2) y formato de manifest decidido (0002, extendido por 0003 para
+archivos grandes fragmentados). `update_engine::manifest` ya implementado y aceptado. Ver
+`docs/ESTADO.md` para el estado concreto y el próximo paso. Toda nueva decisión de arquitectura
+se registra como ADR en `docs/decisiones/`, igual que las anteriores.
 
 Toda afirmación sobre un proyecto externo (licencia, actividad, versión soportada) va con URL y
 fecha de consulta, igual que en el resto del repo. Sin fuente, no se escribe. Se puede estudiar
