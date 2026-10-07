@@ -38,8 +38,33 @@ arquitectura):**
 - Árbol completo del cliente volcado en `docs/arbol-cliente.csv` (no versionado, es dato de una
   sesión concreta — si hace falta regenerarlo, el comando PowerShell está en el historial de esta
   conversación, no en un script del repo).
-- Subida en curso a GitHub Releases, en este mismo repositorio (`warcrafted-server/launcher`),
-  vía la interfaz web (sin `gh` disponible en el entorno de desarrollo).
+- También se excluyen del cliente base, tras limpiar la release: manuales/PDF/HTML/JS de
+  documentación de todos los idiomas (el usuario los borró de la release manualmente); se
+  mantienen las cinemáticas `.avi`.
+- Se añaden al manifest, no contemplados en el alcance inicial: los ejecutables/DLLs del
+  directorio raíz del cliente (`Wow.exe`, `WowError.exe`, `Repair.exe`, `Battle.net.dll`,
+  `DivxDecoder.dll`, `Scan.dll`, `dbghelp.dll`, `ijl15.dll`, `msvcr80.dll`, `unicows.dll`) como
+  `role: required`, `kind: clientBase` — el juego no arranca sin ellos.
+- `realmlist.wtf` se trata como una entrada más del manifest (`kind: config`, `role: required`,
+  contenido fijo `set realmlist logon.warcrafted.com`), no como una comprobación aparte: si el
+  jugador lo modifica o usa un cliente limpio sin configurar, `integrity` ya lo detecta como
+  `Corrupt`/`Missing` igual que cualquier otro archivo, y `staging` lo repara igual que un parche.
+  No hace falta lógica nueva.
+- **`patch-Z.MPQ`/`patch-esES-Z.MPQ` (contenido del mod SoD, se actualiza con frecuencia,
+  independiente del cliente base) van en una Release de GitHub separada** de la del cliente base
+  (`contenido-v1`). Esto no cambia el formato del manifest: sigue siendo un único manifest con
+  todos los archivos, pero cada entrada tiene su propio `source.url`, que puede apuntar a
+  cualquier release — no hace falta que todas las URLs vivan en la misma release. Pendiente:
+  hashear estos dos archivos (no estaban incluidos en los cálculos anteriores) y decidir el
+  nombre/tag de esa release de parches.
+- Subida de la release de contenido base (`contenido-v1`) hecha vía interfaz web de GitHub (sin
+  `gh` disponible en el entorno de desarrollo); limpieza de assets sobrantes ya realizada por el
+  usuario.
+- RuneEngraver (addon obligatorio) y el flujo completo de arranque (comprobar realmlist →
+  comprobar integridad de parches/addons → reparar si falta algo → arrancar) quedan descritos y
+  acordados, pendientes de traducir a entradas de manifest + implementación de `staging` y del
+  comando de lanzamiento del juego (todavía no existe ningún comando Tauri de UI para esto, solo
+  el `greet` de ejemplo del scaffold).
 
 ## Decisiones tomadas
 
@@ -57,12 +82,17 @@ arquitectura):**
 
 ## Próximo paso
 
-1. Terminar de subir todos los assets a la Release de GitHub (en curso).
-2. Construir el `manifest.json` real con las URLs de descarga y hashes SHA-256 ya calculados por
-   `split-archivos-grandes.ps1` (fragmentos) y pendientes de calcular para el resto de archivos.
-3. Implementar `update_engine::staging` (descarga con reintentos/reanudación, ensamblado de
+1. Calcular hash SHA-256 de todos los archivos del cliente base ya subidos a `contenido-v1`
+   (pendiente: ejecutar el script de hashes sobre la lista limpia tras quitar documentación).
+2. Decidir tag/release para `patch-Z.MPQ`/`patch-esES-Z.MPQ` y hashearlos aparte.
+3. Construir el `manifest.json` real con todas las URLs (de `contenido-v1` y de la release de
+   parches) y hashes.
+4. Implementar `update_engine::staging` (descarga con reintentos/reanudación, ensamblado de
    fragmentos según decisión 0003, aplicación atómica) sobre `manifest`/`integrity` ya
    implementados.
+5. Diseñar e implementar el comando de lanzamiento del juego (comprobar realmlist, bloquear si el
+   cliente no es válido, arrancar `Wow.exe`) — todavía no existe ningún comando Tauri real, solo
+   el `greet` de ejemplo del scaffold.
 
 ## No hacer
 
