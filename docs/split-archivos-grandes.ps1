@@ -27,8 +27,11 @@ foreach ($nombre in $archivosAFragmentar) {
     }
 
     [int64]$tamanoTotal = (Get-Item $origen).Length
-    [int64]$numPartes = $tamanoTotal -div $partSizeBytes
-    if (($tamanoTotal % $partSizeBytes) -ne 0) { $numPartes++ }
+    # DivRem opera con Int64 y evita tanto la conversión a Double de `/`
+    # como el posible desbordamiento de sumar partSizeBytes - 1 al tamaño.
+    [int64]$restoPartes = 0
+    [int64]$numPartes = [Math]::DivRem($tamanoTotal, $partSizeBytes, [ref]$restoPartes)
+    if ($restoPartes -ne 0) { $numPartes++ }
     Write-Host "Fragmentando $nombre ($tamanoTotal bytes) en $numPartes partes..."
 
     # Read() y el tamaño de un array .NET reciben un Int32; el resto de
