@@ -11,7 +11,7 @@ No modifica ni borra el archivo original.
 #>
 
 $clienteDir = "C:\Wow\Per pujar\WotLK-WarCrafted\Data"
-$partSizeBytes = 1900MB  # 1900 * 1024 * 1024 bytes
+[int64]$partSizeBytes = 1900 * 1024 * 1024  # 1900 * 1024 * 1024 bytes
 
 $archivosAFragmentar = @(
     "patch.MPQ",
@@ -26,23 +26,27 @@ foreach ($nombre in $archivosAFragmentar) {
         continue
     }
 
-    $tamanoTotal = (Get-Item $origen).Length
-    $numPartes = [Math]::Ceiling($tamanoTotal / $partSizeBytes)
+    [int64]$tamanoTotal = (Get-Item $origen).Length
+    [int64]$numPartes = $tamanoTotal -div $partSizeBytes
+    if (($tamanoTotal % $partSizeBytes) -ne 0) { $numPartes++ }
     Write-Host "Fragmentando $nombre ($tamanoTotal bytes) en $numPartes partes..."
 
-    $bufferSize = 64MB
+    # Read() y el tamaño de un array .NET reciben un Int32; el resto de
+    # tamaños y posiciones de archivo se mantienen como Int64.
+    [int]$bufferSize = 64MB
     $buffer = New-Object byte[] $bufferSize
     $origenStream = [System.IO.File]::OpenRead($origen)
     try {
-        for ($parte = 0; $parte -lt $numPartes; $parte++) {
+        for ([int64]$parte = 0; $parte -lt $numPartes; $parte++) {
             $sufijo = $parte.ToString("000")
             $destino = "$origen.part-$sufijo"
-            $restante = [Math]::Min($partSizeBytes, $tamanoTotal - $origenStream.Position)
+            [int64]$bytesDisponibles = $tamanoTotal - [int64]$origenStream.Position
+            [int64]$restante = if ($bytesDisponibles -lt $partSizeBytes) { $bytesDisponibles } else { $partSizeBytes }
             $destinoStream = [System.IO.File]::Create($destino)
             try {
                 while ($restante -gt 0) {
-                    $aLeer = [Math]::Min($bufferSize, $restante)
-                    $leidos = $origenStream.Read($buffer, 0, $aLeer)
+                    [int]$aLeer = if ($restante -lt [int64]$bufferSize) { [int]$restante } else { $bufferSize }
+                    [int]$leidos = $origenStream.Read($buffer, 0, $aLeer)
                     if ($leidos -le 0) { break }
                     $destinoStream.Write($buffer, 0, $leidos)
                     $restante -= $leidos
@@ -65,6 +69,8 @@ foreach ($nombre in $archivosAFragmentar) {
     Write-Host "Hash SHA-256 del archivo original completo ($nombre, va en files[].sha256):"
     $hashOriginal = Get-FileHash $origen -Algorithm SHA256
     Write-Host "  $($hashOriginal.Hash.ToLower())"
+    $carpetaFragmentos = (Get-Item $origen).Directory.FullName
+    Write-Host "Fragmentos de $nombre en: $carpetaFragmentos"
     Write-Host ""
 }
 
