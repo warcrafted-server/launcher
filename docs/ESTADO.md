@@ -6,8 +6,11 @@ lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-07**.
 ## Dónde estamos
 
 Investigación completa (`docs/investigacion/`, 5 informes) y decisión de stack tomada:
-**Tauri 2**, ver `docs/decisiones/0001-stack-tecnologico.md`. **Aún no hay código.** Próximo paso:
-delegar el esqueleto del proyecto Tauri.
+**Tauri 2**, ver `docs/decisiones/0001-stack-tecnologico.md`. Esqueleto Tauri 2 generado y
+compilando (`cargo check` verificado en Linux); backend Rust reestructurado en `ui_commands`
+(comandos de UI) y `update_engine/` (submódulos `manifest`, `integrity`, `staging`, todavía solo
+con su responsabilidad documentada, sin lógica). Próximo paso: diseñar el formato del manifest y
+empezar a implementar el núcleo de `update_engine`.
 
 ## Decisiones tomadas
 
@@ -17,9 +20,10 @@ delegar el esqueleto del proyecto Tauri.
 
 ## Próximo paso
 
-Delegar la creación del esqueleto del proyecto Tauri (`src-tauri/` + `src/`) con una ventana básica,
-sin lógica de producto todavía. Después: estructura de capas (UI / comandos Tauri / motor de
-actualización) antes de implementar ninguna función concreta del encargo.
+Diseñar el formato concreto del manifest (reino/canal, build de cliente, versión monotónica,
+rutas normalizadas, hash SHA-256, rol obligatorio/opcional, firma) y, con eso decidido, delegar
+la implementación del núcleo de `update_engine` (verificación de hashes, descarga con
+reintentos/reanudación, staging atómico) antes de tocar UI real.
 
 ## No hacer
 

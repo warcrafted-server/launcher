@@ -1,10 +1,8 @@
 # WarCrafted Launcher
 
-Instrucciones propias de `launcher/`, subproyecto independiente dentro del repositorio
-`warcrafted-server/WotLK-SoD`. El [AGENTS.md raíz](../AGENTS.md) trata del servidor AzerothCore/SoD
-(otro lenguaje, otro ciclo de vida, otras normas de `upstream/`/`core/`/`server/`) y **no aplica
-aquí** salvo lo que se repite expresamente en este archivo. Si trabajas dentro de `launcher/`, esta
-es tu referencia; si trabajas en el resto del repo, usa el AGENTS.md raíz.
+Instrucciones del repositorio **`warcrafted-server/launcher`**, independiente del servidor
+AzerothCore/SoD (ese vive en su propio repositorio, con su propio AGENTS.md). Este archivo es la
+única referencia para trabajar aquí.
 
 ## 0. Qué es esto
 
@@ -93,16 +91,10 @@ como módulo propio, no como dependencia de un framework de UI (decisión 0001).
 
 ## 5. Delegación con AgentRelay
 
-Este subproyecto comparte repositorio git con el servidor, así que `agentrelay status`/`run`
-operan sobre **todo** `WotLK-SoD`, no solo sobre `launcher/`. Al delegar tareas del launcher:
-
-- Indica explícitamente en el `objective`/`context` de la tarea que el trabajo es sobre
-  `launcher/` y que no debe tocar `server/`, `core/`, `docs/decisiones/0001`-`0005` (son del
-  servidor) ni nada fuera de `launcher/`, salvo que la propia tarea lo pida.
-- Usa `files`/`doNotModify` para acotar a rutas dentro de `launcher/`.
-- El resto del flujo (dividir en tareas pequeñas, revisar con `agentrelay show`/`review`, no dar
-  por bueno que compile, commits en castellano) es el mismo que describe el AGENTS.md raíz en su
-  bloque de AgentRelay.
+Este repositorio es propio del launcher (no comparte árbol con el servidor), así que
+`agentrelay status`/`run` operan solo sobre esta carpeta. Ver el bloque de AgentRelay más abajo
+para el flujo completo (dividir en tareas pequeñas, revisar con `agentrelay show`/`review`, no dar
+por bueno que compile, commits en castellano).
 
 ## 6. Rigor
 
