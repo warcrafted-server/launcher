@@ -17,13 +17,17 @@ empezar a implementar el núcleo de `update_engine`.
 - **0001 — Stack tecnológico: Tauri 2.** Motor de actualización/integridad como módulo Rust propio,
   independiente del framework de UI. Pendiente de validar en la práctica: presencia real de
   WebView2 en equipos objetivo, tamaño/arranque del instalador final.
+- **0002 — Formato del manifest.** JSON firmado (Ed25519), por reino/canal/build de cliente,
+  versión monotónica anti-rollback, roles `required`/`optional` explícitos nunca confundibles,
+  origen de descarga separado del hash de integridad. Pendiente de validar: tamaño real de un
+  manifest completo, proceso operativo de firma.
 
 ## Próximo paso
 
-Diseñar el formato concreto del manifest (reino/canal, build de cliente, versión monotónica,
-rutas normalizadas, hash SHA-256, rol obligatorio/opcional, firma) y, con eso decidido, delegar
-la implementación del núcleo de `update_engine` (verificación de hashes, descarga con
-reintentos/reanudación, staging atómico) antes de tocar UI real.
+Implementar el núcleo de `update_engine` sobre el formato de manifest ya decidido (0002):
+empezar por `manifest` (parseo + validación de firma/versión/rutas), seguir por `integrity`
+(verificación de hashes) y `staging` (descarga con reintentos/reanudación, aplicación atómica),
+antes de tocar UI real. Buen candidato para delegar en tareas pequeñas por submódulo.
 
 ## No hacer
 
