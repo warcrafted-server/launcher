@@ -28,6 +28,16 @@ arquitectura):**
   después sin romper el formato del manifest (0002/0003 ya soportan assets con nombre distinto en
   origen que el `path` de instalación, útil para el conflicto de nombres duplicados entre locales
   en GitHub Releases, p. ej. los `.avi` de `Interface/Cinematics/`).
+- Se excluyen también los archivos legales/enlaces sueltos de `esES/` (`AccountBilling.url`,
+  `TechSupport.url`, `Credits*.html`, `eula.html`, `termination.html`, `tos.html`,
+  `connection-help.html`): contenido legal/soporte de Blizzard, mismo criterio que
+  `Documentation/`.
+- Se excluye `patch-A.MPQ` (71 KB, en la raíz de `Data/`): investigado y confirmado (con fuentes,
+  no oficial de Blizzard) como el patrón de parche de AzerothCore para el módulo ARAC (All Races
+  All Classes). WarCrafted no usa ese módulo, así que no hace falta distribuirlo.
+- Árbol completo del cliente volcado en `docs/arbol-cliente.csv` (no versionado, es dato de una
+  sesión concreta — si hace falta regenerarlo, el comando PowerShell está en el historial de esta
+  conversación, no en un script del repo).
 - Subida en curso a GitHub Releases, en este mismo repositorio (`warcrafted-server/launcher`),
   vía la interfaz web (sin `gh` disponible en el entorno de desarrollo).
 

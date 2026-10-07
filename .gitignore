@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 agentrelay.config.json
 .agentrelay/
+
+# Volcados de datos de sesión, no versionados (ver docs/ESTADO.md)
+docs/arbol-cliente.csv
