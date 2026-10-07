@@ -3,8 +3,10 @@
 use std::{
     error::Error,
     ffi::OsString,
-    fmt, io,
+    fmt, fs as std_fs,
+    io::{self, Seek, SeekFrom},
     path::{Component, Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
 
@@ -20,6 +22,7 @@ use super::manifest::{resolve_manifest_path, FileSource, ManifestError, Manifest
 
 const HASH_BUFFER_SIZE: usize = 1024 * 1024;
 const MAX_DOWNLOAD_ATTEMPTS: usize = 4;
+static NEXT_ARCHIVE_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug)]
 pub enum StagingError {
@@ -48,6 +51,7 @@ pub enum StagingError {
         source_size: u64,
     },
     UnsafePath(PathBuf),
+    UnsafeArchiveEntry(PathBuf),
     Filesystem(io::Error),
 }
 
@@ -95,6 +99,11 @@ impl fmt::Display for StagingError {
             Self::UnsafePath(path) => write!(
                 formatter,
                 "la ruta de staging contiene un enlace simbólico o escapa del directorio: {}",
+                path.display()
+            ),
+            Self::UnsafeArchiveEntry(path) => write!(
+                formatter,
+                "el archivo TAR contiene una entrada no permitida: {}",
                 path.display()
             ),
             Self::Filesystem(error) => write!(formatter, "falló el filesystem de staging: {error}"),
@@ -209,6 +218,183 @@ pub async fn stage_manifest_file(
     }
 
     Ok(target)
+}
+
+/// Extrae un TAR verificado y sustituye `destination_root` solo cuando está completo.
+pub fn extract_archive(archive_path: &Path, destination_root: &Path) -> Result<(), StagingError> {
+    let metadata = std_fs::symlink_metadata(archive_path).map_err(StagingError::Filesystem)?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err(StagingError::UnsafePath(archive_path.to_path_buf()));
+    }
+
+    let mut archive =
+        tar::Archive::new(std_fs::File::open(archive_path).map_err(StagingError::Filesystem)?);
+    validate_archive_entries(&mut archive)?;
+    let mut archive_file = archive.into_inner();
+    archive_file
+        .seek(SeekFrom::Start(0))
+        .map_err(StagingError::Filesystem)?;
+    let mut archive = tar::Archive::new(archive_file);
+
+    let destination = prepare_archive_destination(destination_root)?;
+    let extraction_root = create_archive_staging_directory(&destination)?;
+
+    let extraction_result = extract_archive_entries(&mut archive, &extraction_root);
+    if let Err(error) = extraction_result {
+        let _ = std_fs::remove_dir_all(&extraction_root);
+        return Err(error);
+    }
+
+    if let Err(error) = promote_archive_directory(&extraction_root, &destination) {
+        let _ = std_fs::remove_dir_all(&extraction_root);
+        return Err(error);
+    }
+
+    Ok(())
+}
+
+fn validate_archive_entries(archive: &mut tar::Archive<std_fs::File>) -> Result<(), StagingError> {
+    for entry in archive.entries().map_err(StagingError::Filesystem)? {
+        let entry = entry.map_err(StagingError::Filesystem)?;
+        let path = entry.path().map_err(StagingError::Filesystem)?;
+        resolve_archive_entry_path(Path::new("/"), &path, entry.header().entry_type())?;
+    }
+    Ok(())
+}
+
+fn extract_archive_entries(
+    archive: &mut tar::Archive<std_fs::File>,
+    extraction_root: &Path,
+) -> Result<(), StagingError> {
+    for entry in archive.entries().map_err(StagingError::Filesystem)? {
+        let mut entry = entry.map_err(StagingError::Filesystem)?;
+        let path = entry.path().map_err(StagingError::Filesystem)?;
+        let entry_type = entry.header().entry_type();
+        let Some(target) = resolve_archive_entry_path(extraction_root, &path, entry_type)? else {
+            continue;
+        };
+
+        if entry_type.is_dir() {
+            std_fs::create_dir_all(&target).map_err(StagingError::Filesystem)?;
+            continue;
+        }
+
+        let parent = target
+            .parent()
+            .ok_or_else(|| StagingError::UnsafeArchiveEntry(path.to_path_buf()))?;
+        std_fs::create_dir_all(parent).map_err(StagingError::Filesystem)?;
+        let mut output = std_fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&target)
+            .map_err(StagingError::Filesystem)?;
+        io::copy(&mut entry, &mut output).map_err(StagingError::Filesystem)?;
+        output.sync_all().map_err(StagingError::Filesystem)?;
+    }
+    Ok(())
+}
+
+fn resolve_archive_entry_path(
+    root: &Path,
+    path: &Path,
+    entry_type: tar::EntryType,
+) -> Result<Option<PathBuf>, StagingError> {
+    if entry_type.is_symlink() || entry_type.is_hard_link() {
+        return Err(StagingError::UnsafeArchiveEntry(path.to_path_buf()));
+    }
+    if !entry_type.is_file() && !entry_type.is_dir() {
+        return Err(StagingError::UnsafeArchiveEntry(path.to_path_buf()));
+    }
+
+    let raw_path = path
+        .to_str()
+        .ok_or_else(|| StagingError::UnsafeArchiveEntry(path.to_path_buf()))?;
+    if matches!(raw_path, "." | "./") {
+        return if entry_type.is_dir() {
+            Ok(None)
+        } else {
+            Err(StagingError::UnsafeArchiveEntry(path.to_path_buf()))
+        };
+    }
+
+    resolve_manifest_path(root, raw_path)
+        .map(Some)
+        .map_err(|_| StagingError::UnsafeArchiveEntry(path.to_path_buf()))
+}
+
+fn prepare_archive_destination(destination_root: &Path) -> Result<PathBuf, StagingError> {
+    let file_name = destination_root
+        .file_name()
+        .ok_or_else(|| StagingError::UnsafePath(destination_root.to_path_buf()))?;
+    let requested_parent = destination_root
+        .parent()
+        .filter(|parent| !parent.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    std_fs::create_dir_all(requested_parent).map_err(StagingError::Filesystem)?;
+    let parent = std_fs::canonicalize(requested_parent).map_err(StagingError::Filesystem)?;
+    let destination = parent.join(file_name);
+
+    match std_fs::symlink_metadata(&destination) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+            return Err(StagingError::UnsafePath(destination));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(StagingError::Filesystem(error)),
+    }
+
+    Ok(destination)
+}
+
+fn create_archive_staging_directory(destination: &Path) -> Result<PathBuf, StagingError> {
+    for _ in 0..32 {
+        let candidate = archive_sidecar_path(destination, "staging");
+        match std_fs::create_dir(&candidate) {
+            Ok(()) => return Ok(candidate),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(StagingError::Filesystem(error)),
+        }
+    }
+    Err(StagingError::Filesystem(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "no se pudo reservar un directorio temporal para extraer el TAR",
+    )))
+}
+
+fn archive_sidecar_path(path: &Path, suffix: &str) -> PathBuf {
+    let mut name = OsString::from(".");
+    name.push(path.file_name().unwrap_or_default());
+    name.push(format!(
+        ".warcrafted-{suffix}-{}-{}",
+        std::process::id(),
+        NEXT_ARCHIVE_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+    ));
+    path.with_file_name(name)
+}
+
+fn promote_archive_directory(
+    extraction_root: &Path,
+    destination: &Path,
+) -> Result<(), StagingError> {
+    match std_fs::symlink_metadata(destination) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+            return Err(StagingError::UnsafePath(destination.to_path_buf()))
+        }
+        Ok(_) => {
+            let backup = archive_sidecar_path(destination, "backup");
+            std_fs::rename(destination, &backup).map_err(StagingError::Filesystem)?;
+            if let Err(error) = std_fs::rename(extraction_root, destination) {
+                let _ = std_fs::rename(&backup, destination);
+                return Err(StagingError::Filesystem(error));
+            }
+            std_fs::remove_dir_all(backup).map_err(StagingError::Filesystem)?;
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            std_fs::rename(extraction_root, destination).map_err(StagingError::Filesystem)?;
+        }
+        Err(error) => return Err(StagingError::Filesystem(error)),
+    }
+    Ok(())
 }
 
 fn ensure_source_size(path: &str, file_size: u64, source: &FileSource) -> Result<(), StagingError> {
@@ -652,6 +838,35 @@ mod tests {
         Client::builder().no_proxy().build().unwrap()
     }
 
+    fn append_tar_file(builder: &mut tar::Builder<fs::File>, path: &str, contents: &[u8]) {
+        let mut header = tar::Header::new_gnu();
+        header.set_size(contents.len() as u64);
+        header.set_mode(0o644);
+        builder.append_data(&mut header, path, contents).unwrap();
+    }
+
+    fn create_tar(path: &Path, files: &[(&str, &[u8])]) {
+        let file = fs::File::create(path).unwrap();
+        let mut builder = tar::Builder::new(file);
+        for (entry_path, contents) in files {
+            append_tar_file(&mut builder, entry_path, contents);
+        }
+        builder.finish().unwrap();
+    }
+
+    fn create_tar_with_traversal(path: &Path) {
+        create_tar(path, &[("new-file.txt", b"new"), ("escape.txt", b"escape")]);
+        let mut contents = fs::read(path).unwrap();
+        let header = &mut contents[1024..1536];
+        header[..100].fill(0);
+        header[.."../escape.txt".len()].copy_from_slice(b"../escape.txt");
+        header[148..156].fill(b' ');
+        let checksum: u32 = header.iter().map(|byte| u32::from(*byte)).sum();
+        let checksum = format!("{checksum:06o}\0 ");
+        header[148..156].copy_from_slice(checksum.as_bytes());
+        fs::write(path, contents).unwrap();
+    }
+
     #[tokio::test]
     async fn downloads_file_and_verifies_its_sha256() {
         let body = b"small client file";
@@ -715,5 +930,80 @@ mod tests {
 
         assert_eq!(fs::read(result).unwrap(), b"first-second-third");
         server.await.unwrap();
+    }
+
+    #[test]
+    fn extracts_tar_files_from_nested_directories() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("addon.tar");
+        create_tar(
+            &archive_path,
+            &[
+                ("RuneEngraver/RuneEngraver.toc", b"toc"),
+                ("RuneEngraver/Core/Init.lua", b"init"),
+                ("RuneEngraver/Locales/enUS.lua", b"locale"),
+            ],
+        );
+        let destination = temp_dir.0.join("installed/RuneEngraver");
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(destination.join("old-file.txt"), b"old").unwrap();
+
+        extract_archive(&archive_path, &destination).unwrap();
+
+        assert_eq!(
+            fs::read(destination.join("RuneEngraver/RuneEngraver.toc")).unwrap(),
+            b"toc"
+        );
+        assert_eq!(
+            fs::read(destination.join("RuneEngraver/Core/Init.lua")).unwrap(),
+            b"init"
+        );
+        assert_eq!(
+            fs::read(destination.join("RuneEngraver/Locales/enUS.lua")).unwrap(),
+            b"locale"
+        );
+        assert!(!destination.join("old-file.txt").exists());
+    }
+
+    #[test]
+    fn rejects_archive_traversal_without_changing_destination() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("unsafe.tar");
+        create_tar_with_traversal(&archive_path);
+        let destination = temp_dir.0.join("installed/addon");
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(destination.join("old-file.txt"), b"old").unwrap();
+
+        let result = extract_archive(&archive_path, &destination);
+
+        assert!(matches!(result, Err(StagingError::UnsafeArchiveEntry(_))));
+        assert_eq!(fs::read(destination.join("old-file.txt")).unwrap(), b"old");
+        assert!(!destination.join("new-file.txt").exists());
+        assert!(!temp_dir.0.join("escape.txt").exists());
+    }
+
+    #[test]
+    fn rejects_archive_symbolic_links_without_changing_destination() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("symlink.tar");
+        let mut builder = tar::Builder::new(fs::File::create(&archive_path).unwrap());
+        append_tar_file(&mut builder, "new-file.txt", b"new");
+        let mut header = tar::Header::new_gnu();
+        header.set_entry_type(tar::EntryType::Symlink);
+        header.set_size(0);
+        header.set_mode(0o777);
+        builder
+            .append_link(&mut header, "link", "../../outside")
+            .unwrap();
+        builder.finish().unwrap();
+        let destination = temp_dir.0.join("installed/addon");
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(destination.join("old-file.txt"), b"old").unwrap();
+
+        let result = extract_archive(&archive_path, &destination);
+
+        assert!(matches!(result, Err(StagingError::UnsafeArchiveEntry(_))));
+        assert_eq!(fs::read(destination.join("old-file.txt")).unwrap(), b"old");
+        assert!(!destination.join("new-file.txt").exists());
     }
 }
