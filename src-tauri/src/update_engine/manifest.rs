@@ -71,6 +71,7 @@ pub enum FileKind {
     ClientPatch,
     Addon,
     Config,
+    Archive,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -676,6 +677,42 @@ mod tests {
         assert_eq!(manifest.realm, "icetracks");
         assert_eq!(manifest.files[0].role, FileRole::Required);
         assert_eq!(manifest.files[0].kind, FileKind::ClientPatch);
+    }
+
+    #[test]
+    fn parses_signed_manifest_with_archive_file() {
+        let signing_key = SigningKey::from_bytes(&[8; 32]);
+        let document = serde_json::json!({
+            "schemaVersion": 1,
+            "realm": "icetracks",
+            "channel": "production",
+            "clientBuild": 12340,
+            "manifestVersion": 8,
+            "publishedAt": "2026-10-07T12:00:00Z",
+            "minLauncherVersion": "1.0.0",
+            "files": [{
+                "path": "Interface/AddOns/RuneEngraver.tar",
+                "role": "required",
+                "kind": "archive",
+                "sizeBytes": 1024,
+                "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "source": {
+                    "url": "https://example.com/RuneEngraver.tar",
+                    "compressedSizeBytes": 1024,
+                    "compression": "none"
+                }
+            }]
+        });
+        let document = sign_document(document, &signing_key);
+        let keys = BTreeMap::from([("test-key".into(), signing_key.verifying_key())]);
+
+        let manifest = parse_manifest(&document, &keys).unwrap();
+
+        assert_eq!(manifest.files[0].kind, FileKind::Archive);
+        assert_eq!(
+            serde_json::to_value(manifest.files[0].kind).unwrap(),
+            Value::String("archive".into())
+        );
     }
 
     fn sign_document(mut document: Value, signing_key: &SigningKey) -> Vec<u8> {
