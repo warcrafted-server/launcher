@@ -7,15 +7,29 @@ lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-07**.
 
 Investigación completa (`docs/investigacion/`, 5 informes) y decisión de stack tomada:
 **Tauri 2**, ver `docs/decisiones/0001-stack-tecnologico.md`. Esqueleto Tauri 2 generado y
-compilando. `update_engine::manifest` implementado y aceptado (tipos, verificación de firma
-Ed25519, anti-rollback, normalización de rutas, tests) — ver commit `f153125`. `integrity` y
-`staging` siguen vacíos.
+compilando. `update_engine::manifest` (commit `5756d42`, con soporte de `assembly`) y
+`update_engine::integrity` (commit `2b97668`) implementados y aceptados, con tests. `staging`
+sigue vacío.
 
 Se investigaron y descartaron como origen de descarga TeraBox, Hugging Face Hub (Datasets) y
 DigiStorage (sin API estable, sin garantía contractual, o atados a una cuenta personal). El
-cliente completo ronda 20 GB (cifra del usuario, sin medir con precisión), por encima del límite
-de 2 GiB/archivo de GitHub Releases: se decidió fragmentarlo (decisión 0003) en vez de cambiar de
-infraestructura de distribución.
+cliente completo ronda 20 GB; tres archivos superan el límite de 2 GiB/archivo de GitHub Releases
+(`patch.MPQ` ~3,73 GiB, `common.MPQ` ~2,69 GiB, `lichking.MPQ` ~2,40 GiB) y se fragmentaron en
+partes de 1900 MiB con `docs/split-archivos-grandes.ps1` (decisión 0003). El resto del cliente se
+sube entero, archivo por archivo.
+
+**Alcance de contenido de la primera release (sin ADR propio, es alcance de producto, no
+arquitectura):**
+- Se excluye `Data/*/Documentation/**` (ambos idiomas): documentación del instalador original de
+  Blizzard, no necesaria para jugar.
+- Se excluye `Data/enUS/**` completo en esta primera versión: el cliente WarCrafted permite
+  cambiar de locale, pero solo se soporta oficialmente `esES` por ahora. Cambiar a `enUS` sin este
+  contenido dejará el cliente incompleto — limitación conocida, no un bug. Se puede añadir `enUS`
+  después sin romper el formato del manifest (0002/0003 ya soportan assets con nombre distinto en
+  origen que el `path` de instalación, útil para el conflicto de nombres duplicados entre locales
+  en GitHub Releases, p. ej. los `.avi` de `Interface/Cinematics/`).
+- Subida en curso a GitHub Releases, en este mismo repositorio (`warcrafted-server/launcher`),
+  vía la interfaz web (sin `gh` disponible en el entorno de desarrollo).
 
 ## Decisiones tomadas
 
@@ -33,10 +47,12 @@ infraestructura de distribución.
 
 ## Próximo paso
 
-Implementar `update_engine::integrity` (verificación de hashes contra el filesystem real) y
-`update_engine::staging` (descarga con reintentos/reanudación, ensamblado de fragmentos según
-decisión 0003, aplicación atómica), sobre el manifest ya implementado. Buen candidato para
-delegar en tareas pequeñas por submódulo.
+1. Terminar de subir todos los assets a la Release de GitHub (en curso).
+2. Construir el `manifest.json` real con las URLs de descarga y hashes SHA-256 ya calculados por
+   `split-archivos-grandes.ps1` (fragmentos) y pendientes de calcular para el resto de archivos.
+3. Implementar `update_engine::staging` (descarga con reintentos/reanudación, ensamblado de
+   fragmentos según decisión 0003, aplicación atómica) sobre `manifest`/`integrity` ya
+   implementados.
 
 ## No hacer
 
