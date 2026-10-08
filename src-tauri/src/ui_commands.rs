@@ -4,6 +4,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::Command,
     sync::atomic::{AtomicU64, Ordering},
+    time::{Duration, Instant},
 };
 
 use ed25519_dalek::VerifyingKey;
@@ -59,6 +60,18 @@ struct UpdateProgress {
     total: usize,
     status: &'static str,
     message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VerifyProgressPayload {
+    index: usize,
+    total: usize,
+    path: String,
+    file_bytes_done: u64,
+    file_bytes_total: u64,
+    bytes_done: u64,
+    bytes_total: u64,
 }
 
 #[derive(Serialize)]
@@ -121,7 +134,7 @@ pub(crate) fn clear_cache(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub(crate) async fn check_client_status(app: AppHandle) -> Result<Vec<ClientFileStatus>, String> {
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&client_dir).await?;
+    let snapshot = load_client_snapshot(&app, &client_dir).await?;
     Ok(snapshot
         .manifest
         .files
@@ -134,7 +147,7 @@ pub(crate) async fn check_client_status(app: AppHandle) -> Result<Vec<ClientFile
 #[tauri::command]
 pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&client_dir).await?;
+    let snapshot = load_client_snapshot(&app, &client_dir).await?;
     let pending: Vec<_> = snapshot
         .manifest
         .files
@@ -195,7 +208,7 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&client_dir).await?;
+    let snapshot = load_client_snapshot(&app, &client_dir).await?;
     match decide_launch(&snapshot.manifest, &snapshot.report, GAME_EXECUTABLE) {
         LaunchDecision::Blocked(paths) => {
             return Err(format!(
@@ -241,12 +254,53 @@ fn configured_client_dir(app: &AppHandle) -> Result<PathBuf, String> {
     settings::validate_client_dir(&path)
 }
 
-async fn load_client_snapshot(install_dir: &Path) -> Result<ClientSnapshot, String> {
+async fn load_client_snapshot(
+    app: &AppHandle,
+    install_dir: &Path,
+) -> Result<ClientSnapshot, String> {
     let manifest = fetch_manifest().await?;
     let install_root = install_dir.to_path_buf();
     let manifest_for_verification = manifest.clone();
+    let app = app.clone();
     let report = tokio::task::spawn_blocking(move || {
-        integrity::verify_manifest_files(&manifest_for_verification, &install_root)
+        let mut last_emitted_at = None;
+        let mut last_index = 0;
+        let mut last_emitted_progress = None;
+        integrity::verify_manifest_files_with_progress(
+            &manifest_for_verification,
+            &install_root,
+            |progress| {
+                let first_for_file = progress.index != last_index;
+                let last_for_file = progress.file_bytes_done >= progress.file_bytes_total;
+                let interval_elapsed = last_emitted_at
+                    .map(|time: Instant| time.elapsed() >= Duration::from_millis(100))
+                    .unwrap_or(true);
+                let current_progress = (
+                    progress.index,
+                    progress.file_bytes_done,
+                    progress.bytes_done,
+                );
+                if (first_for_file || last_for_file || interval_elapsed)
+                    && last_emitted_progress != Some(current_progress)
+                {
+                    let _ = app.emit(
+                        "verify-progress",
+                        VerifyProgressPayload {
+                            index: progress.index,
+                            total: progress.total,
+                            path: progress.path.clone(),
+                            file_bytes_done: progress.file_bytes_done,
+                            file_bytes_total: progress.file_bytes_total,
+                            bytes_done: progress.bytes_done,
+                            bytes_total: progress.bytes_total,
+                        },
+                    );
+                    last_emitted_at = Some(Instant::now());
+                    last_emitted_progress = Some(current_progress);
+                }
+                last_index = progress.index;
+            },
+        )
     })
     .await
     .map_err(|error| format!("falló la tarea de verificación de integridad: {error}"))?
@@ -358,9 +412,13 @@ fn to_client_file_status(role: FileRole, verification: &FileVerification) -> Cli
     let (status, message) = match &verification.status {
         FileStatus::Valid => (ClientFileState::Ok, None),
         FileStatus::Missing => (ClientFileState::Missing, None),
-        FileStatus::Corrupt { expected, actual } => (
+        FileStatus::Corrupt { actual, .. } => (
             ClientFileState::Corrupt,
-            Some(format!("SHA-256 esperado {expected}, recibido {actual}")),
+            Some(if actual.starts_with("tamaño") {
+                format!("Versión distinta de la requerida ({actual}).")
+            } else {
+                "Contenido modificado o dañado.".to_owned()
+            }),
         ),
         FileStatus::Unreadable { message } => (ClientFileState::Error, Some(message.clone())),
     };

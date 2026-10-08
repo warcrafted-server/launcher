@@ -1,7 +1,7 @@
 use std::{
     error::Error,
     fmt,
-    fs::File,
+    fs::{self, File},
     io::{self, Read},
     path::Path,
 };
@@ -11,11 +11,23 @@ use sha2::{Digest, Sha256};
 use super::manifest::{resolve_manifest_path, Manifest, ManifestError};
 
 const HASH_BUFFER_SIZE: usize = 1024 * 1024;
+const PROGRESS_INTERVAL_BYTES: u64 = 32 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileVerification {
     pub path: String,
     pub status: FileStatus,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VerifyProgress {
+    pub index: usize,
+    pub total: usize,
+    pub path: String,
+    pub file_bytes_done: u64,
+    pub file_bytes_total: u64,
+    pub bytes_done: u64,
+    pub bytes_total: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -49,26 +61,127 @@ pub fn verify_manifest_files(
     manifest: &Manifest,
     install_root: &Path,
 ) -> Result<Vec<FileVerification>, IntegrityError> {
-    manifest
-        .files
-        .iter()
-        .map(|file| {
-            let file_path = resolve_manifest_path(install_root, &file.path).map_err(|source| {
-                IntegrityError {
-                    path: file.path.clone(),
-                    source,
-                }
-            })?;
-
-            Ok(FileVerification {
-                path: file.path.clone(),
-                status: verify_file(&file_path, &file.sha256),
-            })
-        })
-        .collect()
+    verify_manifest_files_with_progress(manifest, install_root, |_| {})
 }
 
-fn verify_file(path: &Path, expected: &str) -> FileStatus {
+/// Verifica los archivos del manifest e informa del avance por archivo y bytes leídos.
+pub fn verify_manifest_files_with_progress(
+    manifest: &Manifest,
+    install_root: &Path,
+    mut on_progress: impl FnMut(&VerifyProgress),
+) -> Result<Vec<FileVerification>, IntegrityError> {
+    let total = manifest.files.len();
+    let bytes_total = manifest
+        .files
+        .iter()
+        .fold(0u64, |sum, file| sum.saturating_add(file.size_bytes));
+    let mut bytes_done = 0u64;
+    let mut report = Vec::with_capacity(total);
+
+    for (file_index, file) in manifest.files.iter().enumerate() {
+        let index = file_index + 1;
+        let bytes_done_before_file = bytes_done;
+        let mut file_bytes_done = 0;
+        report_progress(
+            &mut on_progress,
+            index,
+            total,
+            &file.path,
+            file_bytes_done,
+            file.size_bytes,
+            bytes_done_before_file,
+            bytes_total,
+        );
+
+        let file_path =
+            resolve_manifest_path(install_root, &file.path).map_err(|source| IntegrityError {
+                path: file.path.clone(),
+                source,
+            })?;
+        let status =
+            verify_file_with_progress(&file_path, &file.sha256, file.size_bytes, |bytes_read| {
+                file_bytes_done = bytes_read;
+                report_progress(
+                    &mut on_progress,
+                    index,
+                    total,
+                    &file.path,
+                    file_bytes_done,
+                    file.size_bytes,
+                    bytes_done_before_file,
+                    bytes_total,
+                );
+            });
+
+        // Los archivos ausentes, descartados por tamaño o ilegibles también completan
+        // su parte del trabajo del manifest para que el progreso alcance el total.
+        file_bytes_done = file.size_bytes;
+        bytes_done = bytes_done.saturating_add(file.size_bytes);
+        report_progress(
+            &mut on_progress,
+            index,
+            total,
+            &file.path,
+            file_bytes_done,
+            file.size_bytes,
+            bytes_done_before_file,
+            bytes_total,
+        );
+        report.push(FileVerification {
+            path: file.path.clone(),
+            status,
+        });
+    }
+
+    Ok(report)
+}
+
+fn report_progress(
+    on_progress: &mut dyn FnMut(&VerifyProgress),
+    index: usize,
+    total: usize,
+    path: &str,
+    file_bytes_done: u64,
+    file_bytes_total: u64,
+    bytes_done_before_file: u64,
+    bytes_total: u64,
+) {
+    on_progress(&VerifyProgress {
+        index,
+        total,
+        path: path.to_owned(),
+        file_bytes_done,
+        file_bytes_total,
+        bytes_done: bytes_done_before_file.saturating_add(file_bytes_done),
+        bytes_total,
+    });
+}
+
+fn verify_file_with_progress(
+    path: &Path,
+    expected: &str,
+    expected_size: u64,
+    mut on_progress: impl FnMut(u64),
+) -> FileStatus {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return FileStatus::Missing,
+        Err(error) => {
+            return FileStatus::Unreadable {
+                message: error.to_string(),
+            }
+        }
+    };
+    if metadata.len() != expected_size {
+        return FileStatus::Corrupt {
+            expected: expected.to_owned(),
+            actual: format!(
+                "tamaño {} bytes, se esperaban {expected_size}",
+                metadata.len()
+            ),
+        };
+    }
+
     let mut file = match File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return FileStatus::Missing,
@@ -81,10 +194,19 @@ fn verify_file(path: &Path, expected: &str) -> FileStatus {
 
     let mut hasher = Sha256::new();
     let mut buffer = [0; HASH_BUFFER_SIZE];
+    let mut file_bytes_done = 0u64;
+    let mut next_progress = PROGRESS_INTERVAL_BYTES;
     loop {
         match file.read(&mut buffer) {
             Ok(0) => break,
-            Ok(bytes_read) => hasher.update(&buffer[..bytes_read]),
+            Ok(bytes_read) => {
+                hasher.update(&buffer[..bytes_read]);
+                file_bytes_done = file_bytes_done.saturating_add(bytes_read as u64);
+                if file_bytes_done >= next_progress {
+                    on_progress(file_bytes_done);
+                    next_progress = file_bytes_done.saturating_add(PROGRESS_INTERVAL_BYTES);
+                }
+            }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => {
                 return FileStatus::Unreadable {
@@ -161,13 +283,13 @@ mod tests {
         encode_hex(Sha256::digest(contents).iter().copied())
     }
 
-    fn manifest_file(path: &str, expected_hash: String) -> ManifestFile {
+    fn manifest_file(path: &str, expected_hash: String, size_bytes: u64) -> ManifestFile {
         ManifestFile {
             path: path.to_owned(),
             role: FileRole::Required,
             kind: FileKind::ClientBase,
             addon_group: None,
-            size_bytes: 0,
+            size_bytes,
             sha256: expected_hash,
             source: Some(FileSource {
                 url: "https://example.invalid/file".into(),
@@ -201,7 +323,11 @@ mod tests {
         let temp_dir = TempDir::new();
         let contents = b"client file contents";
         temp_dir.write("Data/file.MPQ", contents);
-        let manifest = manifest(vec![manifest_file("Data/file.MPQ", sha256(contents))]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            sha256(contents),
+            contents.len() as u64,
+        )]);
 
         let report = verify_manifest_files(&manifest, &temp_dir.0).unwrap();
 
@@ -211,7 +337,11 @@ mod tests {
     #[test]
     fn reports_missing_file() {
         let temp_dir = TempDir::new();
-        let manifest = manifest(vec![manifest_file("Data/missing.MPQ", sha256(b"expected"))]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/missing.MPQ",
+            sha256(b"expected"),
+            8,
+        )]);
 
         let report = verify_manifest_files(&manifest, &temp_dir.0).unwrap();
 
@@ -224,7 +354,11 @@ mod tests {
         let expected = sha256(b"expected contents");
         let actual = sha256(b"different contents");
         temp_dir.write("Data/file.MPQ", b"different contents");
-        let manifest = manifest(vec![manifest_file("Data/file.MPQ", expected.clone())]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            expected.clone(),
+            b"different contents".len() as u64,
+        )]);
 
         let report = verify_manifest_files(&manifest, &temp_dir.0).unwrap();
 
@@ -232,11 +366,75 @@ mod tests {
     }
 
     #[test]
+    fn rejects_a_matching_hash_when_the_file_size_differs() {
+        let temp_dir = TempDir::new();
+        let contents = b"contents with a matching hash";
+        temp_dir.write("Data/file.MPQ", contents);
+        let expected = sha256(contents);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            expected.clone(),
+            contents.len() as u64 + 1,
+        )]);
+
+        let report = verify_manifest_files(&manifest, &temp_dir.0).unwrap();
+
+        assert_eq!(
+            report[0].status,
+            FileStatus::Corrupt {
+                expected,
+                actual: format!(
+                    "tamaño {} bytes, se esperaban {}",
+                    contents.len(),
+                    contents.len() + 1
+                ),
+            }
+        );
+    }
+
+    #[test]
+    fn progress_counts_missing_files_and_finishes_at_the_manifest_total() {
+        let temp_dir = TempDir::new();
+        let contents = b"valid";
+        temp_dir.write("Data/file.MPQ", contents);
+        let manifest = manifest(vec![
+            manifest_file("Data/file.MPQ", sha256(contents), contents.len() as u64),
+            manifest_file("Data/missing.MPQ", sha256(b"absent"), 12),
+        ]);
+        let mut progress = Vec::new();
+
+        let report = verify_manifest_files_with_progress(&manifest, &temp_dir.0, |value| {
+            progress.push(value.clone());
+        })
+        .unwrap();
+
+        assert_eq!(report[0].status, FileStatus::Valid);
+        assert_eq!(report[1].status, FileStatus::Missing);
+        assert!(!progress.is_empty());
+        assert!(progress
+            .windows(2)
+            .all(|pair| pair[0].index <= pair[1].index));
+        assert_eq!(
+            progress
+                .iter()
+                .map(|value| value.index)
+                .collect::<std::collections::BTreeSet<_>>(),
+            [1, 2].into_iter().collect()
+        );
+        assert_eq!(
+            progress.last().unwrap().bytes_done,
+            progress.last().unwrap().bytes_total
+        );
+        assert_eq!(progress.last().unwrap().bytes_total, 17);
+        assert_eq!(progress.last().unwrap().file_bytes_done, 12);
+    }
+
+    #[test]
     fn verifies_assembled_file_at_its_final_path() {
         let temp_dir = TempDir::new();
         let contents = b"assembled final contents";
         temp_dir.write("Data/large.MPQ", contents);
-        let mut file = manifest_file("Data/large.MPQ", sha256(contents));
+        let mut file = manifest_file("Data/large.MPQ", sha256(contents), contents.len() as u64);
         file.source = None;
         file.assembly = Some(Assembly {
             part_size_bytes: 4,
