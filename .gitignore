@@ -28,3 +28,7 @@ agentrelay.config.json
 # Volcados de datos de sesión, no versionados (ver docs/ESTADO.md)
 docs/arbol-cliente.csv
 docs/hashes-cliente.csv
+
+# Locks de sesión de Claude Code, locales
+scheduled_tasks.lock
+.claude/scheduled_tasks.lock
