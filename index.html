@@ -1,44 +1,87 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111820" />
     <title>WarCrafted Launcher</title>
+    <link rel="stylesheet" href="/src/styles.css" />
     <script type="module" src="/src/main.ts" defer></script>
   </head>
-
   <body>
-    <main class="container">
-      <h1>WarCrafted Launcher</h1>
-      <p>Esqueleto Tauri 2 — decisión 0001. Sin lógica de producto todavía.</p>
+    <main class="launcher-shell">
+      <header class="topbar">
+        <a class="wordmark" href="#inicio" aria-label="WarCrafted Launcher, inicio">
+          <span>WarCrafted <span class="wordmark-light">Launcher</span></span>
+        </a>
+        <span class="build-label">WotLK · Build 12340</span>
+      </header>
 
-      <div class="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/src/assets/vite.svg" class="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img
-            src="/src/assets/tauri.svg"
-            class="logo tauri"
-            alt="Tauri logo"
-          />
-        </a>
-        <a href="https://www.typescriptlang.org/docs" target="_blank">
-          <img
-            src="/src/assets/typescript.svg"
-            class="logo typescript"
-            alt="typescript logo"
-          />
-        </a>
-      </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+      <section class="welcome-panel" id="inicio" aria-labelledby="welcome-title">
+        <div class="welcome-copy">
+          <p class="eyebrow">REINO ICETRACKS</p>
+          <h1 id="welcome-title">Tu aventura<br />empieza aquí.</h1>
+          <p class="welcome-description">
+            Comprueba y prepara los archivos del juego antes de entrar al reino.
+          </p>
+        </div>
+        <div class="realm-card" aria-label="Estado del reino">
+          <div>
+            <span class="realm-label">REINO OBJETIVO</span>
+            <strong>IceTracks</strong>
+          </div>
+          <span class="realm-version">3.3.5a</span>
+        </div>
+      </section>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
+      <section class="client-panel panel" aria-labelledby="client-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">PREPARACIÓN DEL JUEGO</p>
+            <h2 id="client-title">Estado del cliente</h2>
+          </div>
+          <span class="client-location">Ruta temporal: ./warcrafted-client</span>
+        </div>
+
+        <div class="action-row">
+          <button class="button button-secondary" id="check-button" type="button">
+            Comprobar estado
+          </button>
+          <button class="button button-primary" id="update-button" type="button">
+            Actualizar
+          </button>
+          <button class="button button-play" id="play-button" type="button" disabled>
+            <span class="play-icon" aria-hidden="true">▶</span>
+            Jugar
+          </button>
+        </div>
+
+        <div class="operation-message" id="operation-message" role="status" aria-live="polite" hidden></div>
+
+        <section class="progress-section" id="progress-section" aria-labelledby="progress-title" hidden>
+          <div class="progress-heading">
+            <h3 id="progress-title">Actualizando cliente</h3>
+            <span id="progress-count">Preparando…</span>
+          </div>
+          <progress id="update-progress" max="1" value="0" aria-label="Progreso de actualización"></progress>
+          <p class="progress-detail" id="progress-detail">Preparando la actualización…</p>
+        </section>
+
+        <section class="file-section" aria-labelledby="files-title">
+          <div class="file-list-heading">
+            <h3 id="files-title">Archivos comprobados</h3>
+            <span id="file-count">Aún no comprobados</span>
+          </div>
+          <ul class="file-list" id="file-list" aria-live="polite">
+            <li class="empty-state">Comprueba el estado para ver los archivos del cliente.</li>
+          </ul>
+        </section>
+      </section>
+
+      <footer class="footer-note">
+        <span>El cliente se valida antes de iniciar el juego.</span>
+        <span>WarCrafted Launcher</span>
+      </footer>
     </main>
   </body>
 </html>
