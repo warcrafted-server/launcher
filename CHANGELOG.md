@@ -18,6 +18,8 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Corregido
 
+- La extracción de addons (`kind: archive`) sustituye solo las carpetas que trae el `.tar`; antes
+  reemplazaba la carpeta destino entera y habría borrado los demás addons del jugador.
 - `scripts/setup.ps1` se guarda con BOM UTF-8 para que PowerShell 5.1 muestre bien los acentos.
 
 ## [0.1.0] - 2026-10-08

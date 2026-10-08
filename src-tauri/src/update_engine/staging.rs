@@ -220,7 +220,7 @@ pub async fn stage_manifest_file(
     Ok(target)
 }
 
-/// Extrae un TAR verificado y sustituye `destination_root` solo cuando está completo.
+/// Extrae un TAR verificado y sustituye sus directorios de primer nivel.
 pub fn extract_archive(archive_path: &Path, destination_root: &Path) -> Result<(), StagingError> {
     let metadata = std_fs::symlink_metadata(archive_path).map_err(StagingError::Filesystem)?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {
@@ -229,7 +229,7 @@ pub fn extract_archive(archive_path: &Path, destination_root: &Path) -> Result<(
 
     let mut archive =
         tar::Archive::new(std_fs::File::open(archive_path).map_err(StagingError::Filesystem)?);
-    validate_archive_entries(&mut archive)?;
+    let directories = validate_archive_entries(&mut archive)?;
     let mut archive_file = archive.into_inner();
     archive_file
         .seek(SeekFrom::Start(0))
@@ -239,27 +239,48 @@ pub fn extract_archive(archive_path: &Path, destination_root: &Path) -> Result<(
     let destination = prepare_archive_destination(destination_root)?;
     let extraction_root = create_archive_staging_directory(&destination)?;
 
-    let extraction_result = extract_archive_entries(&mut archive, &extraction_root);
-    if let Err(error) = extraction_result {
-        let _ = std_fs::remove_dir_all(&extraction_root);
-        return Err(error);
-    }
+    let result = extract_archive_entries(&mut archive, &extraction_root)
+        .and_then(|()| promote_archive_directories(&extraction_root, &destination, &directories));
+    let cleanup = std_fs::remove_dir_all(&extraction_root).map_err(StagingError::Filesystem);
 
-    if let Err(error) = promote_archive_directory(&extraction_root, &destination) {
-        let _ = std_fs::remove_dir_all(&extraction_root);
-        return Err(error);
+    match (result, cleanup) {
+        (Err(error), _) => Err(error),
+        (Ok(()), Err(error)) => Err(error),
+        (Ok(()), Ok(())) => Ok(()),
     }
-
-    Ok(())
 }
 
-fn validate_archive_entries(archive: &mut tar::Archive<std_fs::File>) -> Result<(), StagingError> {
+fn validate_archive_entries(
+    archive: &mut tar::Archive<std_fs::File>,
+) -> Result<Vec<OsString>, StagingError> {
+    let archive_root = Path::new("/");
+    let mut directories = Vec::new();
     for entry in archive.entries().map_err(StagingError::Filesystem)? {
         let entry = entry.map_err(StagingError::Filesystem)?;
         let path = entry.path().map_err(StagingError::Filesystem)?;
-        resolve_archive_entry_path(Path::new("/"), &path, entry.header().entry_type())?;
+        let entry_type = entry.header().entry_type();
+        let Some(resolved) = resolve_archive_entry_path(archive_root, &path, entry_type)? else {
+            continue;
+        };
+        let relative = resolved
+            .strip_prefix(archive_root)
+            .map_err(|_| StagingError::UnsafeArchiveEntry(path.to_path_buf()))?;
+        let mut components = relative.components();
+        let Some(Component::Normal(name)) = components.next() else {
+            return Err(StagingError::UnsafeArchiveEntry(path.to_path_buf()));
+        };
+        if components.next().is_none() && !entry_type.is_dir() {
+            return Err(StagingError::UnsafeArchiveEntry(path.to_path_buf()));
+        }
+        let name = name.to_os_string();
+        if !directories.contains(&name) {
+            directories.push(name);
+        }
     }
-    Ok(())
+    if directories.is_empty() {
+        return Err(StagingError::UnsafeArchiveEntry(PathBuf::from(".")));
+    }
+    Ok(directories)
 }
 
 fn extract_archive_entries(
@@ -372,29 +393,138 @@ fn archive_sidecar_path(path: &Path, suffix: &str) -> PathBuf {
     path.with_file_name(name)
 }
 
-fn promote_archive_directory(
+fn promote_archive_directories(
     extraction_root: &Path,
     destination: &Path,
+    directories: &[OsString],
 ) -> Result<(), StagingError> {
-    match std_fs::symlink_metadata(destination) {
+    let destination_exists = match std_fs::symlink_metadata(destination) {
         Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
             return Err(StagingError::UnsafePath(destination.to_path_buf()))
         }
-        Ok(_) => {
-            let backup = archive_sidecar_path(destination, "backup");
-            std_fs::rename(destination, &backup).map_err(StagingError::Filesystem)?;
-            if let Err(error) = std_fs::rename(extraction_root, destination) {
-                let _ = std_fs::rename(&backup, destination);
+        Ok(_) => true,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => false,
+        Err(error) => return Err(StagingError::Filesystem(error)),
+    };
+
+    // Comprueba todos los destinos antes de mover ninguno para rechazar archivos y enlaces sin
+    // alterar una instalación parcialmente.
+    if destination_exists {
+        for name in directories {
+            let target = destination.join(name);
+            match std_fs::symlink_metadata(&target) {
+                Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                    return Err(StagingError::UnsafePath(target));
+                }
+                Ok(_) => {}
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(StagingError::Filesystem(error)),
+            }
+        }
+    } else {
+        std_fs::create_dir(destination).map_err(StagingError::Filesystem)?;
+    }
+
+    let mut promoted = Vec::new();
+    for name in directories {
+        let staged = extraction_root.join(name);
+        let target = destination.join(name);
+        let backup = match std_fs::symlink_metadata(&target) {
+            Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+                let rollback_error = rollback_archive_directories(&mut promoted);
+                remove_created_archive_destination(destination, destination_exists);
+                if let Some(error) = rollback_error {
+                    return Err(StagingError::Filesystem(error));
+                }
+                return Err(StagingError::UnsafePath(target));
+            }
+            Ok(_) => {
+                let backup = archive_sidecar_path(&target, "backup");
+                if let Err(error) = std_fs::rename(&target, &backup) {
+                    let rollback_error = rollback_archive_directories(&mut promoted);
+                    remove_created_archive_destination(destination, destination_exists);
+                    if let Some(error) = rollback_error {
+                        return Err(StagingError::Filesystem(error));
+                    }
+                    return Err(StagingError::Filesystem(error));
+                }
+                Some(backup)
+            }
+            Err(error) if error.kind() == io::ErrorKind::NotFound => None,
+            Err(error) => {
+                let rollback_error = rollback_archive_directories(&mut promoted);
+                remove_created_archive_destination(destination, destination_exists);
+                if let Some(error) = rollback_error {
+                    return Err(StagingError::Filesystem(error));
+                }
                 return Err(StagingError::Filesystem(error));
             }
-            std_fs::remove_dir_all(backup).map_err(StagingError::Filesystem)?;
+        };
+
+        if let Err(error) = std_fs::rename(&staged, &target) {
+            let current_rollback_error = backup
+                .as_ref()
+                .and_then(|backup| std_fs::rename(backup, &target).err());
+            let rollback_error =
+                rollback_archive_directories(&mut promoted).or(current_rollback_error);
+            remove_created_archive_destination(destination, destination_exists);
+            if let Some(error) = rollback_error {
+                return Err(StagingError::Filesystem(error));
+            }
+            return Err(StagingError::Filesystem(error));
         }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            std_fs::rename(extraction_root, destination).map_err(StagingError::Filesystem)?;
+        promoted.push(PromotedArchiveDirectory {
+            staged,
+            target,
+            backup,
+        });
+    }
+
+    let mut cleanup_error = None;
+    for directory in promoted {
+        if let Some(backup) = directory.backup {
+            if let Err(error) = std_fs::remove_dir_all(backup) {
+                if cleanup_error.is_none() {
+                    cleanup_error = Some(error);
+                }
+            }
         }
-        Err(error) => return Err(StagingError::Filesystem(error)),
+    }
+    if let Some(error) = cleanup_error {
+        return Err(StagingError::Filesystem(error));
     }
     Ok(())
+}
+
+struct PromotedArchiveDirectory {
+    staged: PathBuf,
+    target: PathBuf,
+    backup: Option<PathBuf>,
+}
+
+fn rollback_archive_directories(promoted: &mut Vec<PromotedArchiveDirectory>) -> Option<io::Error> {
+    let mut rollback_error = None;
+    for directory in promoted.drain(..).rev() {
+        if let Err(error) = std_fs::rename(&directory.target, &directory.staged) {
+            if rollback_error.is_none() {
+                rollback_error = Some(error);
+            }
+        }
+        if let Some(backup) = directory.backup {
+            if let Err(error) = std_fs::rename(backup, directory.target) {
+                if rollback_error.is_none() {
+                    rollback_error = Some(error);
+                }
+            }
+        }
+    }
+    rollback_error
+}
+
+fn remove_created_archive_destination(destination: &Path, existed: bool) {
+    if !existed {
+        let _ = std_fs::remove_dir(destination);
+    }
 }
 
 fn ensure_source_size(path: &str, file_size: u64, source: &FileSource) -> Result<(), StagingError> {
@@ -855,7 +985,13 @@ mod tests {
     }
 
     fn create_tar_with_traversal(path: &Path) {
-        create_tar(path, &[("new-file.txt", b"new"), ("escape.txt", b"escape")]);
+        create_tar(
+            path,
+            &[
+                ("Safe/new-file.txt", b"new"),
+                ("Safe/escape.txt", b"escape"),
+            ],
+        );
         let mut contents = fs::read(path).unwrap();
         let header = &mut contents[1024..1536];
         header[..100].fill(0);
@@ -865,6 +1001,24 @@ mod tests {
         let checksum = format!("{checksum:06o}\0 ");
         header[148..156].copy_from_slice(checksum.as_bytes());
         fs::write(path, contents).unwrap();
+    }
+
+    fn assert_no_archive_sidecars(root: &Path) {
+        for entry in fs::read_dir(root).unwrap() {
+            let entry = entry.unwrap();
+            let name = entry.file_name().to_string_lossy().into_owned();
+            assert!(
+                !name.contains(".warcrafted-staging-"),
+                "resto de staging: {name}"
+            );
+            assert!(
+                !name.contains(".warcrafted-backup-"),
+                "resto de backup: {name}"
+            );
+            if entry.file_type().unwrap().is_dir() {
+                assert_no_archive_sidecars(&entry.path());
+            }
+        }
     }
 
     #[tokio::test]
@@ -933,7 +1087,7 @@ mod tests {
     }
 
     #[test]
-    fn extracts_tar_files_from_nested_directories() {
+    fn extracts_archive_files_from_nested_directories() {
         let temp_dir = TempDir::new();
         let archive_path = temp_dir.0.join("addon.tar");
         create_tar(
@@ -962,7 +1116,101 @@ mod tests {
             fs::read(destination.join("RuneEngraver/Locales/enUS.lua")).unwrap(),
             b"locale"
         );
-        assert!(!destination.join("old-file.txt").exists());
+        assert_eq!(fs::read(destination.join("old-file.txt")).unwrap(), b"old");
+        assert_no_archive_sidecars(&temp_dir.0);
+    }
+
+    #[test]
+    fn replaces_only_archive_directories_and_preserves_other_addons() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("addon.tar");
+        create_tar(&archive_path, &[("RuneEngraver/nuevo.lua", b"nuevo")]);
+        let destination = temp_dir.0.join("Interface/AddOns");
+        fs::create_dir_all(destination.join("OtroAddon")).unwrap();
+        fs::write(destination.join("OtroAddon/archivo.lua"), b"otro intacto").unwrap();
+        fs::create_dir_all(destination.join("RuneEngraver")).unwrap();
+        fs::write(destination.join("RuneEngraver/viejo.lua"), b"viejo").unwrap();
+
+        extract_archive(&archive_path, &destination).unwrap();
+
+        assert_eq!(
+            fs::read(destination.join("OtroAddon/archivo.lua")).unwrap(),
+            b"otro intacto"
+        );
+        assert_eq!(
+            fs::read(destination.join("RuneEngraver/nuevo.lua")).unwrap(),
+            b"nuevo"
+        );
+        assert!(!destination.join("RuneEngraver/viejo.lua").exists());
+        assert_no_archive_sidecars(&temp_dir.0);
+    }
+
+    #[test]
+    fn rejects_root_level_archive_files_without_changing_destination() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("unsafe.tar");
+        create_tar(&archive_path, &[("suelto.lua", b"nuevo")]);
+        let destination = temp_dir.0.join("Interface/AddOns");
+        fs::create_dir_all(destination.join("OtroAddon")).unwrap();
+        fs::write(destination.join("OtroAddon/archivo.lua"), b"intacto").unwrap();
+
+        let result = extract_archive(&archive_path, &destination);
+
+        assert!(matches!(result, Err(StagingError::UnsafeArchiveEntry(_))));
+        assert_eq!(
+            fs::read(destination.join("OtroAddon/archivo.lua")).unwrap(),
+            b"intacto"
+        );
+        assert!(!destination.join("suelto.lua").exists());
+        assert_no_archive_sidecars(&temp_dir.0);
+    }
+
+    #[test]
+    fn rejects_archive_when_matching_destination_is_not_a_directory() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("addon.tar");
+        create_tar(&archive_path, &[("RuneEngraver/nuevo.lua", b"nuevo")]);
+        let destination = temp_dir.0.join("Interface/AddOns");
+        fs::create_dir_all(&destination).unwrap();
+        fs::write(destination.join("RuneEngraver"), b"archivo existente").unwrap();
+        fs::write(destination.join("otro.txt"), b"intacto").unwrap();
+
+        let result = extract_archive(&archive_path, &destination);
+
+        assert!(matches!(result, Err(StagingError::UnsafePath(_))));
+        assert_eq!(
+            fs::read(destination.join("RuneEngraver")).unwrap(),
+            b"archivo existente"
+        );
+        assert_eq!(fs::read(destination.join("otro.txt")).unwrap(), b"intacto");
+        assert_no_archive_sidecars(&temp_dir.0);
+    }
+
+    #[test]
+    fn replaces_multiple_archive_directories_and_preserves_unlisted_directory() {
+        let temp_dir = TempDir::new();
+        let archive_path = temp_dir.0.join("addons.tar");
+        create_tar(
+            &archive_path,
+            &[("A/nuevo.lua", b"A"), ("B/nuevo.lua", b"B")],
+        );
+        let destination = temp_dir.0.join("Interface/AddOns");
+        for name in ["A", "B", "C"] {
+            fs::create_dir_all(destination.join(name)).unwrap();
+            fs::write(destination.join(name).join("viejo.lua"), name.as_bytes()).unwrap();
+        }
+
+        extract_archive(&archive_path, &destination).unwrap();
+
+        for name in ["A", "B"] {
+            assert_eq!(
+                fs::read(destination.join(name).join("nuevo.lua")).unwrap(),
+                name.as_bytes()
+            );
+            assert!(!destination.join(name).join("viejo.lua").exists());
+        }
+        assert_eq!(fs::read(destination.join("C/viejo.lua")).unwrap(), b"C");
+        assert_no_archive_sidecars(&temp_dir.0);
     }
 
     #[test]
@@ -978,8 +1226,9 @@ mod tests {
 
         assert!(matches!(result, Err(StagingError::UnsafeArchiveEntry(_))));
         assert_eq!(fs::read(destination.join("old-file.txt")).unwrap(), b"old");
-        assert!(!destination.join("new-file.txt").exists());
+        assert!(!destination.join("Safe/new-file.txt").exists());
         assert!(!temp_dir.0.join("escape.txt").exists());
+        assert_no_archive_sidecars(&temp_dir.0);
     }
 
     #[test]
@@ -987,13 +1236,13 @@ mod tests {
         let temp_dir = TempDir::new();
         let archive_path = temp_dir.0.join("symlink.tar");
         let mut builder = tar::Builder::new(fs::File::create(&archive_path).unwrap());
-        append_tar_file(&mut builder, "new-file.txt", b"new");
+        append_tar_file(&mut builder, "Safe/new-file.txt", b"new");
         let mut header = tar::Header::new_gnu();
         header.set_entry_type(tar::EntryType::Symlink);
         header.set_size(0);
         header.set_mode(0o777);
         builder
-            .append_link(&mut header, "link", "../../outside")
+            .append_link(&mut header, "Safe/link", "../../outside")
             .unwrap();
         builder.finish().unwrap();
         let destination = temp_dir.0.join("installed/addon");
@@ -1004,6 +1253,7 @@ mod tests {
 
         assert!(matches!(result, Err(StagingError::UnsafeArchiveEntry(_))));
         assert_eq!(fs::read(destination.join("old-file.txt")).unwrap(), b"old");
-        assert!(!destination.join("new-file.txt").exists());
+        assert!(!destination.join("Safe/new-file.txt").exists());
+        assert_no_archive_sidecars(&temp_dir.0);
     }
 }
