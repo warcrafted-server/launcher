@@ -1,6 +1,9 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { initializeContentUI, updateContentClientState as updateContentUiState } from "./news";
 
 type ClientFileState = "ok" | "missing" | "corrupt" | "error";
 type FileRole = "required" | "optional";
@@ -41,6 +44,14 @@ interface LauncherSettings {
   clientDir: string | null;
 }
 
+initializeContentUI({
+  chooseFolder: () => void chooseClientFolder(),
+  newInstall: () => void createNewInstall(),
+  fullCheck: () => void checkClient(true),
+  clearCache: () => void clearCache(),
+  openExternal: (url) => void openUrl(url),
+});
+
 const logo = requiredElement<HTMLImageElement>("#brand-logo");
 const checkButton = requiredElement<HTMLButtonElement>("#check-button");
 const updateButton = requiredElement<HTMLButtonElement>("#update-button");
@@ -59,12 +70,11 @@ const clientSummary = requiredElement<HTMLDivElement>("#client-summary");
 const statusIcon = requiredElement<HTMLSpanElement>("#status-icon");
 const statusText = requiredElement<HTMLSpanElement>("#status-text");
 const summaryDescription = requiredElement<HTMLSpanElement>("#summary-description");
-const detailsToggle = requiredElement<HTMLButtonElement>("#details-toggle");
-const detailsLabel = requiredElement<HTMLSpanElement>("#details-label");
-const fileSection = requiredElement<HTMLElement>("#file-section");
 const fileList = requiredElement<HTMLUListElement>("#file-list");
 const fileCount = requiredElement<HTMLSpanElement>("#file-count");
 const showHealthyFiles = requiredElement<HTMLInputElement>("#show-healthy-files");
+const settingsSummary = requiredElement<HTMLDivElement>("#settings-summary");
+const settingsSummaryText = requiredElement<HTMLElement>("#settings-summary strong");
 const logoUrl = new URL("./assets/logo-warcrafted.jpg", import.meta.url).href;
 
 let clientFiles: ClientFileStatus[] = [];
@@ -78,19 +88,29 @@ let isClearingCache = false;
 let isPreparingInstall = false;
 let isCanceling = false;
 let isLoadingSettings = true;
+let isGameRunning = false;
+let messageTimeout: number | undefined;
 
 logo.src = logoUrl;
-chooseFolderButton.addEventListener("click", () => void chooseClientFolder());
-newInstallButton.addEventListener("click", () => void createNewInstall());
 checkButton.addEventListener("click", () => void checkClient());
 updateButton.addEventListener("click", () => void updateClient());
 playButton.addEventListener("click", () => void launchGame());
 clearCacheButton.addEventListener("click", () => void clearCache());
-detailsToggle.addEventListener("click", toggleFileDetails);
 cancelButton.addEventListener("click", () => void cancelCurrentOperation());
 showHealthyFiles.addEventListener("change", () => renderFiles());
+requiredElement<HTMLButtonElement>("#minimize-button").addEventListener("click", () => void getCurrentWindow().minimize());
+requiredElement<HTMLButtonElement>("#close-button").addEventListener("click", () => void closeLauncher());
+requiredElement<HTMLElement>("#titlebar").addEventListener("dblclick", (event) => {
+  const target = event.target;
+  if (target instanceof Element && target.closest("button, [role=tab], img, .realm-caption")) return;
+  void getCurrentWindow().toggleMaximize();
+});
+window.addEventListener("warcrafted-open-url", (event) => {
+  if (event instanceof CustomEvent && typeof event.detail === "string") void openUrl(event.detail);
+});
 
 void loadSettings();
+void loadGameState();
 
 function requiredElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -112,18 +132,20 @@ function refreshButtons(): void {
   chooseFolderButton.disabled = busy;
   newInstallButton.disabled = busy;
   checkButton.disabled = busy || !hasClientDirectory;
-  updateButton.disabled = busy || !hasClientDirectory;
+  updateButton.disabled = busy || !hasClientDirectory || isGameRunning;
   clearCacheButton.disabled = busy || !hasClientDirectory;
-  playButton.disabled = busy || !hasClientDirectory || !hasCheckedClient || clientInstalled === false;
+  playButton.disabled = isGameRunning || busy || !hasClientDirectory || !hasCheckedClient || clientInstalled === false;
   const actionTitle = busy
     ? "Espera a que termine la operación actual"
     : !hasClientDirectory
       ? "Elige primero la carpeta del cliente"
       : "";
   checkButton.title = actionTitle;
-  updateButton.title = actionTitle;
+  updateButton.title = isGameRunning ? "Cierra el juego antes de actualizar" : actionTitle;
   clearCacheButton.title = actionTitle;
-  playButton.title = busy
+  playButton.title = isGameRunning
+    ? "World of Warcraft ya está abierto"
+    : busy
     ? "Espera a que termine la operación actual"
     : !hasClientDirectory
       ? "Elige primero la carpeta del cliente"
@@ -140,7 +162,11 @@ function refreshButtons(): void {
     clientInstalled === false ? "Instalar" : "Actualizar",
   );
   setButtonBusy(clearCacheButton, isClearingCache, "Borrando…", "Borrar caché");
-  setButtonBusy(playButton, isLaunching, "Iniciando…", "JUGAR");
+  setButtonBusy(playButton, isLaunching, "Iniciando…", isGameRunning ? "EN JUEGO" : "JUGAR");
+  if (isGameRunning) {
+    const icon = playButton.querySelector<HTMLElement>(".play-icon");
+    if (icon) icon.hidden = true;
+  }
   cancelButton.hidden = !canCancel;
   cancelButton.disabled = isCanceling;
   cancelButton.textContent = isCanceling ? "Cancelando…" : "Cancelar";
@@ -164,15 +190,60 @@ async function loadSettings(): Promise<void> {
     clientDir = settings.clientDir;
     clientInstalled = null;
     renderClientDirectory();
-    setProgressStatus(clientDir
-      ? "Carpeta cargada. Comprueba el estado del cliente."
-      : "Elige la carpeta del cliente para comenzar.");
+    syncContentClientState();
   } catch (error: unknown) {
     showMessage(`No se pudieron cargar los ajustes: ${errorMessage(error)}`, "error");
   } finally {
     isLoadingSettings = false;
     refreshButtons();
   }
+}
+
+async function loadGameState(): Promise<void> {
+  try {
+    await listen("game-exited", () => setGameRunning(false));
+    isGameRunning = await invoke<boolean>("get_game_running");
+    if (isGameRunning) setSummary("Juego en ejecución", "ok", "▶", "World of Warcraft está abierto.");
+    refreshButtons();
+  } catch (error: unknown) {
+    showMessage(`No se pudo consultar el estado del juego: ${errorMessage(error)}`, "warning");
+  }
+}
+
+function setGameRunning(running: boolean): void {
+  isGameRunning = running;
+  if (running) {
+    setSummary("Juego en ejecución", "ok", "▶", "World of Warcraft está abierto.");
+  } else if (hasCheckedClient) {
+    const attentionCount = clientFiles.filter((file) => file.status !== "ok").length;
+    if (!clientInstalled) {
+      setSummary("Cliente no instalado", "warning", "!", "Se descargará el cliente completo (unos 18,5 GB)");
+    } else if (attentionCount > 0) {
+      setSummary(`${attentionCount} ${attentionCount === 1 ? "archivo requiere" : "archivos requieren"} atención`, "warning", "!");
+    } else {
+      setSummary("Cliente listo para jugar", "ok", "✓");
+    }
+  } else {
+    setSummary("Sin comprobar", "idle", "○", "Comprueba el estado del cliente para jugar.");
+  }
+  refreshButtons();
+}
+
+async function closeLauncher(): Promise<void> {
+  if (isUpdating) {
+    const confirmed = await ask(
+      "Hay una actualización en curso. Si cierras ahora se detendrá. ¿Cerrar el launcher?",
+      { title: "Cerrar WarCrafted Launcher", kind: "warning" },
+    );
+    if (!confirmed) return;
+    try {
+      await invoke<void>("cancel_operation");
+    } catch (error: unknown) {
+      showMessage(`No se pudo detener la actualización: ${errorMessage(error)}`, "error");
+      return;
+    }
+  }
+  await getCurrentWindow().close();
 }
 
 async function chooseClientFolder(): Promise<void> {
@@ -196,7 +267,6 @@ async function chooseClientFolder(): Promise<void> {
     renderFiles("Comprueba el estado para ver los archivos del cliente.");
     showHealthyFiles.checked = false;
     setSummary("Sin comprobar", "idle", "○");
-    setProgressStatus("Carpeta guardada. Comprueba el estado del cliente.");
     hideProgressMeter();
     showMessage("La carpeta del cliente se ha guardado.", "success");
     refreshButtons();
@@ -255,17 +325,35 @@ function renderClientDirectory(): void {
   clientLocation.classList.toggle("is-empty", clientDir === null);
   chooseFolderButton.textContent = clientDir ? "Cambiar…" : "Elegir carpeta…";
   clientFolderHelp.hidden = clientDir !== null;
+  syncContentClientState();
 }
 
 function showMessage(message: string, kind: MessageKind): void {
-  operationMessage.textContent = message;
+  clearMessage();
   operationMessage.dataset.kind = kind;
   operationMessage.setAttribute("role", kind === "error" ? "alert" : "status");
+  operationMessage.append(document.createTextNode(message));
+  if (kind === "success" || kind === "info") {
+    messageTimeout = window.setTimeout(clearMessage, 5000);
+  } else {
+    const closeButton = document.createElement("button");
+    closeButton.type = "button";
+    closeButton.className = "operation-message-close";
+    closeButton.setAttribute("aria-label", "Cerrar mensaje");
+    closeButton.title = "Cerrar mensaje";
+    closeButton.textContent = "×";
+    closeButton.addEventListener("click", clearMessage);
+    operationMessage.append(closeButton);
+  }
   operationMessage.hidden = false;
 }
 
 function clearMessage(): void {
-  operationMessage.textContent = "";
+  if (messageTimeout !== undefined) {
+    window.clearTimeout(messageTimeout);
+    messageTimeout = undefined;
+  }
+  operationMessage.replaceChildren();
   operationMessage.hidden = true;
   delete operationMessage.dataset.kind;
 }
@@ -276,7 +364,7 @@ function errorMessage(error: unknown): string {
   return "Se produjo un error inesperado.";
 }
 
-async function checkClient(): Promise<void> {
+async function checkClient(full = false): Promise<void> {
   if (!clientDir || isBusy()) return;
   const previousSummary = {
     text: statusText.textContent ?? "",
@@ -296,7 +384,7 @@ async function checkClient(): Promise<void> {
     stopListening = await listen<VerifyProgressPayload>("verify-progress", ({ payload }) => {
       showVerifyProgress(payload);
     });
-    const status = await invoke<ClientStatusResponse>("check_client_status");
+    const status = await invoke<ClientStatusResponse>("check_client_status", { full });
     clientFiles = status.files;
     clientInstalled = status.installed;
     hasCheckedClient = true;
@@ -305,16 +393,12 @@ async function checkClient(): Promise<void> {
     renderFiles();
     if (!status.installed) {
       setSummary("Cliente no instalado", "warning", "!", "Se descargará el cliente completo (unos 18,5 GB)");
-      setProgressStatus("El cliente no está instalado. Puedes descargarlo con el botón Instalar.");
       showMessage("El cliente no está instalado. Se descargará completo (unos 18,5 GB).", "info");
     } else {
       const summary = attentionCount === 0
         ? "Cliente listo para jugar"
         : `${attentionCount} ${attentionCount === 1 ? "archivo requiere" : "archivos requieren"} atención`;
       setSummary(summary, attentionCount === 0 ? "ok" : "warning", attentionCount === 0 ? "✓" : "!");
-      setProgressStatus(attentionCount === 0
-        ? "Comprobación completada. Todos los archivos están en buen estado."
-        : `Comprobación completada. ${summary}.`);
       showMessage(
         attentionCount === 0
           ? "Todos los archivos obligatorios están en buen estado."
@@ -326,18 +410,18 @@ async function checkClient(): Promise<void> {
     const message = errorMessage(error);
     if (isCancellation(message)) {
       restoreSummary(previousSummary);
-      setProgressStatus("Operación cancelada.");
       showMessage("Operación cancelada.", "info");
     } else {
       setSummary("No se pudo comprobar el cliente", "error", "!");
-      setProgressStatus("La comprobación no pudo completarse.");
       showMessage(`No se pudo comprobar el cliente: ${message}`, "error");
     }
   } finally {
     stopListening?.();
     hideProgressMeter();
+    setProgressStatus("");
     isChecking = false;
     isCanceling = false;
+    if (isGameRunning) setSummary("Juego en ejecución", "ok", "▶", "World of Warcraft está abierto.");
     refreshButtons();
   }
 }
@@ -362,7 +446,7 @@ async function updateClient(): Promise<void> {
     });
 
     await invoke<void>("update_client");
-    const status = await invoke<ClientStatusResponse>("check_client_status");
+    const status = await invoke<ClientStatusResponse>("check_client_status", { full: false });
     clientFiles = status.files;
     clientInstalled = status.installed;
     hasCheckedClient = true;
@@ -376,23 +460,19 @@ async function updateClient(): Promise<void> {
     } else {
       setSummary(`${attentionCount} ${attentionCount === 1 ? "archivo requiere" : "archivos requieren"} atención`, "warning", "!");
     }
-    setProgressStatus(status.installed
-      ? "Actualización completada. Los archivos obligatorios están preparados."
-      : "La instalación no está completa. Comprueba los archivos y vuelve a intentarlo.");
     showMessage("Actualización completada.", "success");
   } catch (error: unknown) {
     const message = errorMessage(error);
     if (isCancellation(message)) {
-      setProgressStatus("Operación cancelada.");
       showMessage("Operación cancelada.", "info");
     } else {
-      setProgressStatus("La actualización no pudo completarse.");
       showMessage(`No se pudo completar la actualización: ${message}`, "error");
     }
   } finally {
     stopUpdateListening?.();
     stopVerifyListening?.();
     hideProgressMeter();
+    setProgressStatus("");
     isUpdating = false;
     isCanceling = false;
     refreshButtons();
@@ -400,7 +480,7 @@ async function updateClient(): Promise<void> {
 }
 
 async function launchGame(): Promise<void> {
-  if (!clientDir || !hasCheckedClient || isBusy()) return;
+  if (!clientDir || !hasCheckedClient || isBusy() || isGameRunning) return;
   isLaunching = true;
   refreshButtons();
   clearMessage();
@@ -413,20 +493,19 @@ async function launchGame(): Promise<void> {
       showVerifyProgress(payload);
     });
     await invoke<void>("launch_game");
-    setProgressStatus("El juego se ha iniciado.");
+    setGameRunning(await invoke<boolean>("get_game_running"));
     showMessage("El juego se ha iniciado.", "success");
   } catch (error: unknown) {
     const message = errorMessage(error);
     if (isCancellation(message)) {
-      setProgressStatus("Operación cancelada.");
       showMessage("Operación cancelada.", "info");
     } else {
-      setProgressStatus("No se pudo iniciar el juego.");
       showMessage(`No se pudo iniciar el juego: ${message}`, "error");
     }
   } finally {
     stopListening?.();
     hideProgressMeter();
+    setProgressStatus("");
     isLaunching = false;
     isCanceling = false;
     refreshButtons();
@@ -446,12 +525,13 @@ async function clearCache(): Promise<void> {
     isClearingCache = true;
     refreshButtons();
     clearMessage();
+    setProgressStatus("Borrando caché…");
     await invoke<void>("clear_cache");
-    setProgressStatus("Caché del cliente borrada.");
     showMessage("La caché del cliente se ha borrado.", "success");
   } catch (error: unknown) {
     showMessage(`No se pudo borrar la caché: ${errorMessage(error)}`, "error");
   } finally {
+    setProgressStatus("");
     isClearingCache = false;
     refreshButtons();
   }
@@ -527,13 +607,8 @@ function setSummary(
   summaryDescription.textContent = description;
   statusIcon.textContent = icon;
   clientSummary.dataset.state = state;
-}
-
-function toggleFileDetails(): void {
-  const expanded = detailsToggle.getAttribute("aria-expanded") === "true";
-  detailsToggle.setAttribute("aria-expanded", String(!expanded));
-  detailsLabel.textContent = expanded ? "Ver detalles" : "Ocultar detalles";
-  fileSection.hidden = expanded;
+  settingsSummary.dataset.state = state;
+  settingsSummaryText.textContent = `Estado del cliente: ${message}${description ? ` · ${description}` : ""}`;
 }
 
 function renderFiles(emptyMessage = "No se encontraron archivos en el manifest."): void {
@@ -542,6 +617,7 @@ function renderFiles(emptyMessage = "No se encontraron archivos en el manifest."
   if (clientFiles.length === 0) {
     fileList.append(createEmptyState(emptyMessage));
     fileCount.textContent = "0 archivos";
+    syncContentClientState();
     return;
   }
 
@@ -556,6 +632,24 @@ function renderFiles(emptyMessage = "No se encontraron archivos en el manifest."
   for (const file of visibleFiles) {
     fileList.append(createFileRow(file));
   }
+  syncContentClientState();
+}
+
+function syncContentClientState(): void {
+  const mandatoryAddons = clientFiles
+    .filter((file) => file.role === "required"
+      && file.path.replace(/\\/g, "/").startsWith("Interface/AddOns/")
+      && file.path.toLowerCase().endsWith(".tar"))
+    .map((file) => ({
+      name: file.path.split(/[\\/]/).pop()?.replace(/\.tar$/i, "") ?? file.path,
+      status: statusLabel(file.status),
+      state: file.status === "ok" ? "ok" : file.status === "error" ? "error" : "attention",
+    }));
+  updateContentUiState({
+    hasClientDirectory: clientDir !== null,
+    checked: hasCheckedClient,
+    mandatoryAddons,
+  });
 }
 
 function createFileRow(file: ClientFileStatus): HTMLLIElement {

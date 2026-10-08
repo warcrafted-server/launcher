@@ -8,6 +8,17 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Añadido
 
+- Interfaz en pestañas (Inicio, Noticias, Addons, Ajustes) con barra de ventana propia (arrastrar,
+  minimizar, cerrar) y barra de juego fija abajo.
+- Inicio: noticia destacada con rotación, índice de últimas noticias, tarjetas de características y
+  enlaces oficiales; asistente de primera instalación si no hay carpeta.
+- Noticias con lector integrado y filtro por categoría (contenido de ejemplo en
+  `src/content/content.sample.json`).
+- Addons: obligatorios (gestionados, sin opción de desactivar) separados de los opcionales.
+- Verificación rápida con caché: «Actualizar» y «Jugar» solo releen archivos nuevos o modificados;
+  «Verificación completa» en Ajustes lo lee todo.
+- El launcher detecta cuándo se cierra el juego que lanzó, no permite lanzarlo dos veces y no deja
+  actualizar con el juego abierto (los clientes abiertos a mano no se bloquean).
 - Botón «Cancelar» durante la comprobación y la actualización.
 - «Nueva instalación…»: crea la carpeta «WarCrafted WotLK» en la ubicación elegida e instala el
   cliente completo; si la carpeta no tiene cliente, el botón principal pasa a «Instalar».

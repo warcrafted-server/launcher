@@ -29,8 +29,7 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
 - [ ] Progreso de descarga en bytes, con velocidad y tiempo restante (la verificación ya muestra
       bytes; la descarga aún va por archivos)
-- [ ] Verificación rápida: recordar tamaño y fecha de los archivos ya verificados para no volver a
-      calcular 18,5 GB de hashes en cada comprobación
+- [x] Verificación rápida con caché de tamaño y fecha
 - [x] Cancelar la comprobación y la actualización desde la UI (la actualización se detiene entre
       archivos)
 - [ ] Cancelar también a mitad de un archivo grande y reanudarlo después; mensajes claros ante
@@ -57,14 +56,16 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 
 ## Prioridad 3 — experiencia y contenido
 
-- [ ] Navegación: Jugar, Noticias, Addons, Configuración
-- [ ] Noticias remotas (imagen, título, resumen, fecha, enlace; varias y una destacada)
+- [x] Navegación: Inicio, Noticias, Addons, Ajustes
+- [x] Noticias en la UI (destacada, índice, lector) con contenido de ejemplo
+- [ ] Noticias remotas: `noticias.json` firmado publicado como el manifest, en lugar del ejemplo
 - [ ] Enlaces oficiales (web, foro, base de datos), ampliables sin recompilar
 - [ ] Addons opcionales: descubrir, instalar y actualizar, separados de los obligatorios en datos y
       en UI
 - [ ] **(decisión)** Identidad visual: logo, paleta, tipografía, artwork (sin copiar a Blizzard);
       revisar la licencia de fuentes e iconos
 - [ ] Animaciones, estados de error cuidados y escalado DPI de Windows
+- [ ] Música de fondo opcional con botón de silencio (pista con licencia utilizable)
 - [ ] Idioma: hoy solo `esES`; valorar `enUS`
 
 ## Prioridad 4 — preparación a futuro

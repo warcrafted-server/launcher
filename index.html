@@ -9,64 +9,33 @@
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
-    <main class="launcher-shell">
-      <header class="hero" aria-labelledby="realm-caption">
-        <img class="brand-logo" id="brand-logo" alt="WarCrafted" />
-        <p class="realm-caption" id="realm-caption">Reino IceTracks <span aria-hidden="true">·</span> WotLK 3.3.5a</p>
+    <div class="launcher-shell">
+      <header class="topbar" id="titlebar" data-tauri-drag-region>
+        <img class="brand-logo" id="brand-logo" alt="WarCrafted" data-tauri-drag-region />
+        <nav class="tab-list" id="tab-list" role="tablist" aria-label="Secciones del launcher">
+          <button class="top-tab" id="tab-home" type="button" role="tab" aria-selected="true" aria-controls="panel-home" tabindex="0">INICIO</button>
+          <button class="top-tab" id="tab-news" type="button" role="tab" aria-selected="false" aria-controls="panel-news" tabindex="-1">NOTICIAS</button>
+          <button class="top-tab" id="tab-addons" type="button" role="tab" aria-selected="false" aria-controls="panel-addons" tabindex="-1">ADDONS</button>
+          <button class="top-tab" id="tab-settings" type="button" role="tab" aria-selected="false" aria-controls="panel-settings" tabindex="-1">AJUSTES</button>
+        </nav>
+        <p class="realm-caption" data-tauri-drag-region>IceTracks</p>
+        <div class="window-controls" aria-label="Controles de ventana">
+          <button class="window-control" id="minimize-button" type="button" aria-label="Minimizar" title="Minimizar">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg>
+          </button>
+          <button class="window-control close-control" id="close-button" type="button" aria-label="Cerrar" title="Cerrar">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
       </header>
 
-      <section class="folder-card panel" aria-labelledby="folder-title">
-        <div class="folder-copy">
-          <p class="eyebrow">PREPARACIÓN DEL JUEGO</p>
-          <h1 id="folder-title">Carpeta del cliente</h1>
-          <p class="client-location" id="client-location">Ninguna carpeta elegida</p>
-          <p class="client-folder-help" id="client-folder-help" hidden>
-            El cliente completo ocupa aproximadamente 18,5 GB.
-          </p>
-        </div>
-        <div class="folder-actions">
-          <button class="button button-secondary" id="choose-folder-button" type="button">
-            Elegir carpeta…
-          </button>
-          <button class="button button-secondary" id="new-install-button" type="button">
-            Nueva instalación…
-          </button>
-        </div>
-      </section>
-
-      <section class="client-summary" aria-label="Estado del cliente">
-        <div class="summary-copy" id="client-summary" aria-live="polite">
-          <span class="status-icon" id="status-icon" aria-hidden="true">○</span>
-          <span class="summary-text">
-            <span id="status-text">Sin comprobar</span>
-            <span class="summary-description" id="summary-description"></span>
-          </span>
-        </div>
-        <button class="details-toggle" id="details-toggle" type="button" aria-expanded="false" aria-controls="file-section">
-          <span id="details-label">Ver detalles</span>
-          <span class="chevron" aria-hidden="true">⌄</span>
-        </button>
-      </section>
-
-      <section class="file-section panel" id="file-section" aria-labelledby="files-title" hidden>
-        <div class="file-list-heading">
-          <h2 id="files-title">Archivos del cliente</h2>
-          <div class="file-list-options">
-            <label class="show-healthy-option" for="show-healthy-files">
-              <input id="show-healthy-files" type="checkbox" />
-              Mostrar también los correctos
-            </label>
-            <span id="file-count">Aún no comprobados</span>
-          </div>
-        </div>
-        <ul class="file-list" id="file-list" aria-live="polite">
-          <li class="empty-state">Comprueba el estado para ver los archivos del cliente.</li>
-        </ul>
-      </section>
+      <main class="content-area" id="content-area" aria-label="Contenido del launcher">
+        <div id="tab-panels"></div>
+      </main>
 
       <div class="operation-message" id="operation-message" role="status" aria-live="polite" hidden></div>
 
-      <footer class="action-dock" aria-label="Acciones del cliente">
+      <footer class="action-dock" aria-label="Estado y acciones del cliente">
         <div class="action-group">
           <button class="button button-secondary action-button" id="check-button" type="button" disabled>
             <span class="button-spinner" aria-hidden="true" hidden></span>
@@ -76,28 +45,30 @@
             <span class="button-spinner" aria-hidden="true" hidden></span>
             <span class="button-label">Actualizar</span>
           </button>
-          <button class="button button-secondary action-button" id="clear-cache-button" type="button" disabled>
-            <span class="button-spinner" aria-hidden="true" hidden></span>
-            <span class="button-label">Borrar caché</span>
-          </button>
         </div>
 
-        <div class="progress-area" aria-live="polite">
-          <div class="progress-meter" id="progress-meter" hidden>
-            <progress id="update-progress" max="1" value="0" aria-label="Progreso del cliente"></progress>
+        <div class="dock-status">
+          <div class="summary-copy" id="client-summary" aria-live="polite">
+            <span class="status-icon" id="status-icon" aria-hidden="true">○</span>
+            <span class="summary-text">
+              <span id="status-text">Sin comprobar</span>
+              <span class="summary-description" id="summary-description"></span>
+            </span>
           </div>
-          <p class="progress-status" id="progress-status">Elige la carpeta del cliente para comenzar.</p>
+          <div class="progress-area" aria-live="polite">
+            <div class="progress-meter" id="progress-meter" hidden>
+              <progress id="update-progress" max="1" value="0" aria-label="Progreso del cliente"></progress>
+            </div>
+            <p class="progress-status" id="progress-status"></p>
+          </div>
         </div>
-        <button class="button button-secondary cancel-button" id="cancel-button" type="button" hidden>
-          Cancelar
-        </button>
-
+        <button class="button button-secondary cancel-button" id="cancel-button" type="button" hidden>Cancelar</button>
         <button class="button button-play action-button" id="play-button" type="button" disabled>
           <span class="button-spinner" aria-hidden="true" hidden></span>
           <span class="play-icon" aria-hidden="true">▶</span>
           <span class="button-label">JUGAR</span>
         </button>
       </footer>
-    </main>
+    </div>
   </body>
 </html>

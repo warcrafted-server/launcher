@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "news": [
+    {
+      "id": "runas-clase",
+      "title": "Descubre las runas de clase",
+      "summary": "Nuevas combinaciones de runas amplían las posibilidades de cada clase en Azeroth.",
+      "date": "2026-10-08",
+      "category": "parche",
+      "featured": true,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "Las **runas de clase** ya forman parte de la aventura de WarCrafted. Explora el mundo para descubrirlas y combina sus efectos con tu estilo de juego." },
+        { "type": "heading", "text": "Empieza a experimentar" },
+        { "type": "list", "items": ["Revisa las habilidades nuevas en tu libro de hechizos.", "Prueba distintas combinaciones antes de cada encuentro.", "Comparte tus hallazgos con la comunidad."] }
+      ]
+    },
+    {
+      "id": "fase-uno",
+      "title": "La primera fase llega hasta nivel 25",
+      "summary": "La aventura inicial invita a explorar Azeroth, completar mazmorras y descubrir runas.",
+      "date": "2026-10-05",
+      "category": "anuncio",
+      "featured": true,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "La fase uno establece el límite en **nivel 25**. El contenido está pensado para que cada región y cada grupo ofrezcan nuevas oportunidades de aventura." },
+        { "type": "heading", "text": "Un comienzo para toda la comunidad" },
+        { "type": "paragraph", "text": "Forma un grupo, conoce a otros héroes y prepara a tu personaje para los desafíos que llegarán más adelante." }
+      ]
+    },
+    {
+      "id": "fiesta-cosecha",
+      "title": "Celebra el Festival de la Cosecha",
+      "summary": "Reúne a tu hermandad para una jornada de desafíos, encuentros y recompensas.",
+      "date": "2026-10-01",
+      "category": "evento",
+      "featured": true,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "El Festival de la Cosecha trae actividades para aventureros de todos los niveles. Ven con tu hermandad y disfruta de una celebración en Azeroth." },
+        { "type": "list", "items": ["Participa en encuentros especiales.", "Completa desafíos junto a otros jugadores.", "Consigue recuerdos de la celebración."] }
+      ]
+    },
+    {
+      "id": "mantenimiento-octubre",
+      "title": "Mantenimiento programado del reino",
+      "summary": "Realizaremos tareas de mantenimiento para cuidar la estabilidad del servicio.",
+      "date": "2026-09-27",
+      "category": "mantenimiento",
+      "featured": false,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "El reino tendrá una breve ventana de mantenimiento. Durante este periodo no será posible iniciar sesión." },
+        { "type": "paragraph", "text": "Gracias por vuestra paciencia mientras realizamos estas tareas." }
+      ]
+    },
+    {
+      "id": "druida-ajustes",
+      "title": "Ajustes para las runas de druida",
+      "summary": "Una actualización afina varias interacciones de las runas para mejorar su consistencia.",
+      "date": "2026-09-22",
+      "category": "parche",
+      "featured": false,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "Hemos ajustado varias interacciones de las runas de druida para que sus efectos se comporten de forma más consistente en combate." },
+        { "type": "heading", "text": "Qué cambia" },
+        { "type": "paragraph", "text": "La corrección se distribuye mediante los archivos obligatorios del launcher. Comprueba tu cliente para recibirla." }
+      ]
+    },
+    {
+      "id": "bienvenida",
+      "title": "Bienvenido a WarCrafted",
+      "summary": "Prepara tu cliente y comienza tu aventura en el reino IceTracks.",
+      "date": "2026-09-18",
+      "category": "anuncio",
+      "featured": false,
+      "image": null,
+      "link": null,
+      "body": [
+        { "type": "paragraph", "text": "El launcher mantiene los archivos obligatorios al día y te permite iniciar el juego cuando el cliente está listo." },
+        { "type": "paragraph", "text": "Puedes encontrar guías y conversar con otros jugadores desde los servicios oficiales de WarCrafted." }
+      ]
+    }
+  ],
+  "highlights": [
+    { "icon": "runes", "title": "Runas para descubrir", "text": "Encuentra nuevas formas de jugar con habilidades y combinaciones únicas." },
+    { "icon": "swords", "title": "Aventura en Azeroth", "text": "Explora mazmorras y desafíos con tu grupo y tu hermandad." },
+    { "icon": "shield", "title": "Un cliente preparado", "text": "El launcher verifica los archivos obligatorios antes de jugar." },
+    { "icon": "scroll", "title": "Un mundo en evolución", "text": "Sigue las noticias y cambios de tu reino desde aquí." }
+  ],
+  "links": [
+    { "label": "Web", "url": "https://wotlk.warcrafted.com/", "description": "Información y novedades del reino" },
+    { "label": "Foro", "url": "https://wotlk.warcrafted.com/forum/", "description": "Conversación y ayuda de la comunidad" },
+    { "label": "Base de datos", "url": "https://db.warcrafted.com/", "description": "Consulta objetos, criaturas y hechizos" }
+  ]
+}
