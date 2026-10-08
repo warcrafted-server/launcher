@@ -24,6 +24,8 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 
 - [x] Ruta del cliente configurable y persistente (selector de carpeta, guardada en ajustes)
 - [x] Build 12340 garantizado por la integridad: el hash de `Wow.exe` está en el manifest
+- [ ] Buscar en el disco instalaciones existentes de WoW 3.3.5a (por ejemplo, carpetas con `Wow.exe`
+      del build 12340) y proponerlas al elegir carpeta
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
 - [ ] Progreso de descarga en bytes, con velocidad y tiempo restante (la verificación ya muestra
       bytes; la descarga aún va por archivos)
