@@ -16,14 +16,14 @@
     },
     {
       "kind": "archive",
-      "path": "Data/Interface/AddOns/RuneEngraver.tar",
+      "path": "Interface/AddOns/RuneEngraver.tar",
       "role": "required",
-      "sha256": "8ee040b1686e579ef6ed13b920e5578a79de27b515b6cc03abb38d3d84bc37a9",
-      "sizeBytes": 77824,
+      "sha256": "a97d213f4db83ba659603583eb57a96359d0fc6e2808b646d96089ee26901ccc",
+      "sizeBytes": 81920,
       "source": {
-        "compressedSizeBytes": 77824,
+        "compressedSizeBytes": 81920,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/RuneEngraver/RuneEngraver.tar"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/RuneEngraver/RuneEngraver-20261008-druida.tar"
       }
     },
     {
@@ -324,12 +324,12 @@
       "kind": "clientPatch",
       "path": "Data/esES/patch-esES-Z.MPQ",
       "role": "required",
-      "sha256": "5d498543733bac40cfd25a81ebabf555bdf73f29ddd269e1efeabab946c0f756",
-      "sizeBytes": 6328532,
+      "sha256": "a7d7d8bbea5cedaabb5e83cca73589242962b685fad220a14a09249b1b342232",
+      "sizeBytes": 6338284,
       "source": {
-        "compressedSizeBytes": 6328532,
+        "compressedSizeBytes": 6338284,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z-20261008-druida.MPQ"
       }
     },
     {
@@ -438,12 +438,12 @@
       "kind": "clientPatch",
       "path": "Data/patch-Z.MPQ",
       "role": "required",
-      "sha256": "14069271263514ce55c53b97270edbd8dde047ca7ecceb33d5e58f9bafeabfec",
-      "sizeBytes": 1654007,
+      "sha256": "1af9f718855c77c9fa54ea794b2b4454d7646a4663fe48dd2d49f9651c8051a9",
+      "sizeBytes": 1654224,
       "source": {
-        "compressedSizeBytes": 1654007,
+        "compressedSizeBytes": 1654224,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z-20261008-druida.MPQ"
       }
     },
     {
@@ -594,14 +594,14 @@
       }
     }
   ],
-  "manifestVersion": 2,
+  "manifestVersion": 3,
   "minLauncherVersion": "0.1.0",
-  "publishedAt": "2026-10-08T03:34:38Z",
+  "publishedAt": "2026-10-08T17:43:43Z",
   "realm": "icetracks",
   "schemaVersion": 1,
   "signature": {
     "keyId": "warcrafted-manifest-2026",
     "algorithm": "ed25519",
-    "value": "e9ec38c77fec60c37b7c7f99c774bb1b70ca77ac07eede6eae320c1fdf248f1247b84be00a2a953feee486a7de1f86013a74b2c578e5d0cbdadd4bd94e12f70f"
+    "value": "1b3d43f8d9d735a9f869e75569408c7a8e3d30592c612de74609df285d610cd0da4367eb17ae039d9d9577da435c4be79e96e57fb2ab626a7a0cb7b6e7f3c704"
   }
 }
