@@ -1,6 +1,7 @@
 mod settings;
 mod ui_commands;
 pub mod update_engine;
+mod verify_cache;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

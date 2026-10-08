@@ -1,5 +1,5 @@
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fs,
     path::{Component, Path, PathBuf},
     process::Command,
@@ -13,13 +13,14 @@ use tauri::{AppHandle, Emitter, Manager};
 
 use crate::settings;
 use crate::update_engine::{
-    integrity::{self, FileStatus, FileVerification},
+    integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
         normalize_manifest_path, parse_manifest, resolve_manifest_path, validate_source_hosts,
         validate_target, ExpectedTarget, FileKind, FileRole, Manifest,
     },
     staging,
 };
+use crate::verify_cache;
 
 // Configuración actual de producción; al añadir reinos pasará a ser configuración por reino.
 const MANIFEST_URL: &str =
@@ -91,6 +92,8 @@ pub(crate) struct ClientStatusResponse {
 struct ClientSnapshot {
     manifest: Manifest,
     report: Vec<FileVerification>,
+    cache: HashMap<String, CachedFileState>,
+    cache_directory: PathBuf,
 }
 
 struct StagingDirectory(PathBuf);
@@ -183,10 +186,18 @@ pub(crate) fn clear_cache(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) async fn check_client_status(app: AppHandle) -> Result<ClientStatusResponse, String> {
+pub(crate) async fn check_client_status(
+    app: AppHandle,
+    full: Option<bool>,
+) -> Result<ClientStatusResponse, String> {
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&app, &client_dir).await?;
+    let mode = if full.unwrap_or(false) {
+        VerifyMode::Full
+    } else {
+        VerifyMode::Quick
+    };
+    let snapshot = load_client_snapshot(&app, &client_dir, mode).await?;
     let files = snapshot
         .manifest
         .files
@@ -206,7 +217,7 @@ pub(crate) async fn check_client_status(app: AppHandle) -> Result<ClientStatusRe
 pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&app, &client_dir).await?;
+    let mut snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
     let pending: Vec<_> = snapshot
         .manifest
         .files
@@ -237,7 +248,17 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         let result =
             install_manifest_file(&client, file, &install_root, &staging_directory.0).await;
         let (status, message) = match result {
-            Ok(()) => ("ok", None),
+            Ok(()) => {
+                match installed_file_cache_state(&install_root, file) {
+                    Some(state) => {
+                        snapshot.cache.insert(file.path.clone(), state);
+                    }
+                    None => {
+                        snapshot.cache.remove(&file.path);
+                    }
+                }
+                ("ok", None)
+            }
             Err(message) => {
                 failures.push(format!("{}: {message}", file.path));
                 ("error", Some(message))
@@ -260,6 +281,8 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         return Err("Operación cancelada.".into());
     }
 
+    verify_cache::save_cache(&snapshot.cache_directory, &client_dir, &snapshot.cache)?;
+
     if failures.is_empty() {
         Ok(())
     } else {
@@ -275,7 +298,7 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
 pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
-    let snapshot = load_client_snapshot(&app, &client_dir).await?;
+    let snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
     if CANCEL_OPERATION.load(Ordering::Relaxed) {
         return Err("Operación cancelada.".into());
     }
@@ -335,19 +358,27 @@ fn configured_client_dir(app: &AppHandle) -> Result<PathBuf, String> {
 async fn load_client_snapshot(
     app: &AppHandle,
     install_dir: &Path,
+    mode: VerifyMode,
 ) -> Result<ClientSnapshot, String> {
     let manifest = fetch_manifest().await?;
     let install_root = install_dir.to_path_buf();
     let manifest_for_verification = manifest.clone();
+    let cache_directory = app
+        .path()
+        .app_local_data_dir()
+        .map_err(|error| format!("No se pudo localizar la caché de verificación: {error}"))?;
+    let mut cache = verify_cache::load_cache(&cache_directory, install_dir)?;
     let app = app.clone();
-    let report = tokio::task::spawn_blocking(move || {
+    let (report, cache) = tokio::task::spawn_blocking(move || {
         let mut last_emitted_at = None;
         let mut last_index = 0;
         let mut last_emitted_progress = None;
-        integrity::verify_manifest_files_with_progress(
+        let report = integrity::verify_manifest_files_with_progress(
             &manifest_for_verification,
             &install_root,
             &CANCEL_OPERATION,
+            mode,
+            &mut cache,
             |progress| {
                 let first_for_file = progress.index != last_index;
                 let last_for_file = progress.file_bytes_done >= progress.file_bytes_total;
@@ -379,13 +410,43 @@ async fn load_client_snapshot(
                 }
                 last_index = progress.index;
             },
-        )
+        )?;
+        Ok::<_, integrity::IntegrityError>((report, cache))
     })
     .await
     .map_err(|error| format!("falló la tarea de verificación de integridad: {error}"))?
     .map_err(|error| error.to_string())?;
 
-    Ok(ClientSnapshot { manifest, report })
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
+    verify_cache::save_cache(&cache_directory, install_dir, &cache)?;
+
+    Ok(ClientSnapshot {
+        manifest,
+        report,
+        cache,
+        cache_directory,
+    })
+}
+
+fn installed_file_cache_state(
+    install_root: &Path,
+    file: &crate::update_engine::manifest::ManifestFile,
+) -> Option<CachedFileState> {
+    let path = resolve_manifest_path(install_root, &file.path).ok()?;
+    let metadata = fs::metadata(path).ok()?;
+    let modified_unix_nanos = metadata
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    Some(CachedFileState {
+        size: metadata.len(),
+        modified_unix_nanos,
+        sha256: file.sha256.clone(),
+    })
 }
 
 fn clear_cache_for_client(client_dir: &Path) -> Result<(), String> {

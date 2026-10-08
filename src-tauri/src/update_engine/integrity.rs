@@ -1,18 +1,35 @@
 use std::{
+    collections::HashMap,
     error::Error,
     fmt,
     fs::{self, File},
     io::{self, Read},
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
+    time::UNIX_EPOCH,
 };
 
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use super::manifest::{resolve_manifest_path, Manifest, ManifestError};
 
 const HASH_BUFFER_SIZE: usize = 1024 * 1024;
 const PROGRESS_INTERVAL_BYTES: u64 = 32 * 1024 * 1024;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CachedFileState {
+    pub size: u64,
+    pub modified_unix_nanos: u128,
+    pub sha256: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyMode {
+    Quick,
+    Full,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FileVerification {
@@ -71,7 +88,14 @@ pub fn verify_manifest_files(
     install_root: &Path,
 ) -> Result<Vec<FileVerification>, IntegrityError> {
     let cancel = AtomicBool::new(false);
-    verify_manifest_files_with_progress(manifest, install_root, &cancel, |_| {})
+    verify_manifest_files_with_progress(
+        manifest,
+        install_root,
+        &cancel,
+        VerifyMode::Full,
+        &mut HashMap::new(),
+        |_| {},
+    )
 }
 
 /// Verifica los archivos del manifest e informa del avance por archivo y bytes leídos.
@@ -79,6 +103,8 @@ pub fn verify_manifest_files_with_progress(
     manifest: &Manifest,
     install_root: &Path,
     cancel: &AtomicBool,
+    mode: VerifyMode,
+    cache: &mut HashMap<String, CachedFileState>,
     mut on_progress: impl FnMut(&VerifyProgress),
 ) -> Result<Vec<FileVerification>, IntegrityError> {
     let total = manifest.files.len();
@@ -113,10 +139,12 @@ pub fn verify_manifest_files_with_progress(
                 source,
             }
         })?;
-        let status = verify_file_with_progress(
+        let (status, cached_state) = verify_file_with_progress(
             &file_path,
             &file.sha256,
             file.size_bytes,
+            mode,
+            cache.get(&file.path),
             cancel,
             |bytes_read| {
                 file_bytes_done = bytes_read;
@@ -132,6 +160,16 @@ pub fn verify_manifest_files_with_progress(
                 );
             },
         )?;
+
+        if status == FileStatus::Valid {
+            if let Some(cached_state) = cached_state {
+                cache.insert(file.path.clone(), cached_state);
+            } else {
+                cache.remove(&file.path);
+            }
+        } else {
+            cache.remove(&file.path);
+        }
 
         // Los archivos ausentes, descartados por tamaño o ilegibles también completan
         // su parte del trabajo del manifest para que el progreso alcance el total.
@@ -181,35 +219,74 @@ fn verify_file_with_progress(
     path: &Path,
     expected: &str,
     expected_size: u64,
+    mode: VerifyMode,
+    cached_state: Option<&CachedFileState>,
     cancel: &AtomicBool,
     mut on_progress: impl FnMut(u64),
-) -> Result<FileStatus, IntegrityError> {
+) -> Result<(FileStatus, Option<CachedFileState>), IntegrityError> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(FileStatus::Missing),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok((FileStatus::Missing, None))
+        }
         Err(error) => {
-            return Ok(FileStatus::Unreadable {
-                message: error.to_string(),
-            })
+            return Ok((
+                FileStatus::Unreadable {
+                    message: error.to_string(),
+                },
+                None,
+            ))
         }
     };
     if metadata.len() != expected_size {
-        return Ok(FileStatus::Corrupt {
-            expected: expected.to_owned(),
-            actual: format!(
-                "tamaño {} bytes, se esperaban {expected_size}",
-                metadata.len()
-            ),
-        });
+        return Ok((
+            FileStatus::Corrupt {
+                expected: expected.to_owned(),
+                actual: format!(
+                    "tamaño {} bytes, se esperaban {expected_size}",
+                    metadata.len()
+                ),
+            },
+            None,
+        ));
+    }
+
+    let modified_unix_nanos = metadata
+        .modified()
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_nanos());
+    if mode == VerifyMode::Quick
+        && modified_unix_nanos.is_some_and(|modified_unix_nanos| {
+            cached_state.is_some_and(|cached| {
+                cached.size == metadata.len()
+                    && cached.modified_unix_nanos == modified_unix_nanos
+                    && cached.sha256.eq_ignore_ascii_case(expected)
+            })
+        })
+    {
+        return Ok((
+            FileStatus::Valid,
+            Some(CachedFileState {
+                size: metadata.len(),
+                modified_unix_nanos: modified_unix_nanos.expect("se comprobó antes"),
+                sha256: expected.to_owned(),
+            }),
+        ));
     }
 
     let mut file = match File::open(path) {
         Ok(file) => file,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(FileStatus::Missing),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok((FileStatus::Missing, None))
+        }
         Err(error) => {
-            return Ok(FileStatus::Unreadable {
-                message: error.to_string(),
-            })
+            return Ok((
+                FileStatus::Unreadable {
+                    message: error.to_string(),
+                },
+                None,
+            ))
         }
     };
 
@@ -233,21 +310,32 @@ fn verify_file_with_progress(
             }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => {
-                return Ok(FileStatus::Unreadable {
-                    message: error.to_string(),
-                })
+                return Ok((
+                    FileStatus::Unreadable {
+                        message: error.to_string(),
+                    },
+                    None,
+                ))
             }
         }
     }
 
     let actual = encode_hex(hasher.finalize().iter().copied());
     if actual.eq_ignore_ascii_case(expected) {
-        Ok(FileStatus::Valid)
+        let cached_state = modified_unix_nanos.map(|modified_unix_nanos| CachedFileState {
+            size: metadata.len(),
+            modified_unix_nanos,
+            sha256: expected.to_owned(),
+        });
+        Ok((FileStatus::Valid, cached_state))
     } else {
-        Ok(FileStatus::Corrupt {
-            expected: expected.to_owned(),
-            actual,
-        })
+        Ok((
+            FileStatus::Corrupt {
+                expected: expected.to_owned(),
+                actual,
+            },
+            None,
+        ))
     }
 }
 
@@ -264,9 +352,10 @@ fn encode_hex(bytes: impl IntoIterator<Item = u8>) -> String {
 #[cfg(test)]
 mod tests {
     use std::{
-        fs,
+        fs::{self, FileTimes},
         path::PathBuf,
         sync::atomic::{AtomicBool, AtomicU64, Ordering},
+        time::{Duration, SystemTime},
     };
 
     use super::*;
@@ -339,6 +428,20 @@ mod tests {
                 algorithm: "ed25519".into(),
                 value: String::new(),
             },
+        }
+    }
+
+    fn cached_state(path: &Path, size: u64, sha256: String) -> CachedFileState {
+        let metadata = fs::metadata(path).expect("metadatos del archivo");
+        CachedFileState {
+            size,
+            modified_unix_nanos: metadata
+                .modified()
+                .expect("fecha de modificación")
+                .duration_since(UNIX_EPOCH)
+                .expect("fecha posterior a UNIX_EPOCH")
+                .as_nanos(),
+            sha256,
         }
     }
 
@@ -427,12 +530,17 @@ mod tests {
         ]);
         let mut progress = Vec::new();
         let cancel = AtomicBool::new(false);
+        let mut cache = HashMap::new();
 
-        let report =
-            verify_manifest_files_with_progress(&manifest, &temp_dir.0, &cancel, |value| {
-                progress.push(value.clone())
-            })
-            .unwrap();
+        let report = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &cancel,
+            VerifyMode::Full,
+            &mut cache,
+            |value| progress.push(value.clone()),
+        )
+        .unwrap();
 
         assert_eq!(report[0].status, FileStatus::Valid);
         assert_eq!(report[1].status, FileStatus::Missing);
@@ -493,14 +601,194 @@ mod tests {
         )]);
         let cancel = AtomicBool::new(true);
         let mut progress = Vec::new();
+        let mut cache = HashMap::new();
 
-        let error = verify_manifest_files_with_progress(&manifest, &temp_dir.0, &cancel, |value| {
-            progress.push(value.clone())
-        })
+        let error = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &cancel,
+            VerifyMode::Full,
+            &mut cache,
+            |value| progress.push(value.clone()),
+        )
         .unwrap_err();
 
         assert!(matches!(error, IntegrityError::Cancelled));
         assert_eq!(error.to_string(), "Operación cancelada.");
         assert!(progress.is_empty());
+    }
+
+    #[test]
+    fn quick_verification_trusts_a_matching_cache_entry_without_hashing() {
+        let temp_dir = TempDir::new();
+        let contents = b"actual";
+        let expected = sha256(b"forged");
+        temp_dir.write("Data/file.MPQ", contents);
+        let path = temp_dir.0.join("Data/file.MPQ");
+        let mut cache = HashMap::from([(
+            "Data/file.MPQ".into(),
+            cached_state(&path, contents.len() as u64, expected.clone()),
+        )]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            expected,
+            contents.len() as u64,
+        )]);
+
+        let report = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &AtomicBool::new(false),
+            VerifyMode::Quick,
+            &mut cache,
+            |_| {},
+        )
+        .unwrap();
+
+        assert_eq!(report[0].status, FileStatus::Valid);
+        assert_eq!(cache["Data/file.MPQ"].sha256, sha256(b"forged"));
+    }
+
+    #[test]
+    fn quick_verification_hashes_when_the_modification_time_changes() {
+        let temp_dir = TempDir::new();
+        let contents = b"actual";
+        let expected = sha256(b"forged");
+        temp_dir.write("Data/file.MPQ", contents);
+        let path = temp_dir.0.join("Data/file.MPQ");
+        let cached = cached_state(&path, contents.len() as u64, expected.clone());
+        fs::File::open(&path)
+            .unwrap()
+            .set_times(FileTimes::new().set_modified(SystemTime::now() + Duration::from_secs(3)))
+            .expect("cambiar fecha de modificación");
+        let mut cache = HashMap::from([("Data/file.MPQ".into(), cached.clone())]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            expected.clone(),
+            contents.len() as u64,
+        )]);
+
+        let report = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &AtomicBool::new(false),
+            VerifyMode::Quick,
+            &mut cache,
+            |_| {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            report[0].status,
+            FileStatus::Corrupt {
+                expected,
+                actual: sha256(contents),
+            }
+        );
+        assert!(!cache.contains_key("Data/file.MPQ"));
+    }
+
+    #[test]
+    fn full_verification_hashes_even_when_the_cache_matches_the_manifest() {
+        let temp_dir = TempDir::new();
+        let contents = b"actual";
+        let expected = sha256(b"forged");
+        temp_dir.write("Data/file.MPQ", contents);
+        let path = temp_dir.0.join("Data/file.MPQ");
+        let mut cache = HashMap::from([(
+            "Data/file.MPQ".into(),
+            cached_state(&path, contents.len() as u64, expected.clone()),
+        )]);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            expected.clone(),
+            contents.len() as u64,
+        )]);
+
+        let report = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &AtomicBool::new(false),
+            VerifyMode::Full,
+            &mut cache,
+            |_| {},
+        )
+        .unwrap();
+
+        assert_eq!(
+            report[0].status,
+            FileStatus::Corrupt {
+                expected,
+                actual: sha256(contents),
+            }
+        );
+        assert!(!cache.contains_key("Data/file.MPQ"));
+    }
+
+    #[test]
+    fn hashed_valid_files_are_cached_and_invalid_files_are_removed() {
+        let temp_dir = TempDir::new();
+        let valid_contents = b"valid";
+        let corrupt_contents = b"wrong";
+        temp_dir.write("Data/valid.MPQ", valid_contents);
+        temp_dir.write("Data/corrupt.MPQ", corrupt_contents);
+        let valid_path = temp_dir.0.join("Data/valid.MPQ");
+        let corrupt_path = temp_dir.0.join("Data/corrupt.MPQ");
+        let missing_path = "Data/missing.MPQ";
+        let mut cache = HashMap::from([
+            (
+                "Data/valid.MPQ".into(),
+                cached_state(&valid_path, valid_contents.len() as u64, "stale".into()),
+            ),
+            (
+                "Data/corrupt.MPQ".into(),
+                cached_state(&corrupt_path, corrupt_contents.len() as u64, "stale".into()),
+            ),
+            (
+                missing_path.into(),
+                CachedFileState {
+                    size: 7,
+                    modified_unix_nanos: 0,
+                    sha256: "stale".into(),
+                },
+            ),
+        ]);
+        let manifest = manifest(vec![
+            manifest_file(
+                "Data/valid.MPQ",
+                sha256(valid_contents),
+                valid_contents.len() as u64,
+            ),
+            manifest_file(
+                "Data/corrupt.MPQ",
+                sha256(b"other"),
+                corrupt_contents.len() as u64,
+            ),
+            manifest_file(missing_path, sha256(b"missing"), 7),
+        ]);
+
+        let report = verify_manifest_files_with_progress(
+            &manifest,
+            &temp_dir.0,
+            &AtomicBool::new(false),
+            VerifyMode::Full,
+            &mut cache,
+            |_| {},
+        )
+        .unwrap();
+
+        assert_eq!(report[0].status, FileStatus::Valid);
+        assert_eq!(cache["Data/valid.MPQ"].sha256, sha256(valid_contents));
+        assert!(cache.contains_key("Data/valid.MPQ"));
+        assert_eq!(
+            report[1].status,
+            FileStatus::Corrupt {
+                expected: sha256(b"other"),
+                actual: sha256(corrupt_contents),
+            }
+        );
+        assert_eq!(report[2].status, FileStatus::Missing);
+        assert!(!cache.contains_key("Data/corrupt.MPQ"));
+        assert!(!cache.contains_key(missing_path));
     }
 }
