@@ -35,6 +35,40 @@ const GAME_EXECUTABLE: &str = "Wow.exe";
 static NEXT_STAGING_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 static NEXT_BACKUP_FILE: AtomicU64 = AtomicU64::new(0);
 static CANCEL_OPERATION: AtomicBool = AtomicBool::new(false);
+static GAME_RUNNING: AtomicBool = AtomicBool::new(false);
+
+struct GameReservation {
+    active: bool,
+}
+
+impl GameReservation {
+    fn new() -> Self {
+        Self { active: true }
+    }
+
+    fn release(&mut self) {
+        if self.active {
+            release_game(&GAME_RUNNING);
+            self.active = false;
+        }
+    }
+}
+
+impl Drop for GameReservation {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+fn try_reserve_game(game_running: &AtomicBool) -> bool {
+    game_running
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_ok()
+}
+
+fn release_game(game_running: &AtomicBool) {
+    game_running.store(false, Ordering::Release);
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -215,6 +249,9 @@ pub(crate) async fn check_client_status(
 
 #[tauri::command]
 pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
+    if GAME_RUNNING.load(Ordering::Acquire) {
+        return Err("Cierra el juego antes de actualizar: sus archivos están en uso.".into());
+    }
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let mut snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
@@ -296,6 +333,10 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
+    if !try_reserve_game(&GAME_RUNNING) {
+        return Err("El juego ya está en ejecución.".into());
+    }
+    let mut reservation = GameReservation::new();
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
@@ -328,11 +369,24 @@ pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
     if CANCEL_OPERATION.load(Ordering::Relaxed) {
         return Err("Operación cancelada.".into());
     }
-    Command::new(&executable_path)
+    let child = Command::new(&executable_path)
         .current_dir(&install_root)
         .spawn()
-        .map(|_| ())
-        .map_err(|error| format!("no se pudo iniciar el juego: {error}"))
+        .map_err(|error| format!("no se pudo iniciar el juego: {error}"))?;
+
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let mut child = child;
+        let _ = child.wait();
+        reservation.release();
+        let _ = app.emit("game-exited", ());
+    });
+    Ok(())
+}
+
+#[tauri::command]
+pub(crate) fn get_game_running() -> bool {
+    GAME_RUNNING.load(Ordering::Acquire)
 }
 
 #[tauri::command]
@@ -812,6 +866,18 @@ mod tests {
     use std::sync::atomic::AtomicU64;
 
     static NEXT_TEST_DIRECTORY: AtomicU64 = AtomicU64::new(0);
+
+    #[test]
+    fn game_reservation_rejects_a_second_launch_until_released() {
+        let game_running = AtomicBool::new(false);
+
+        assert!(try_reserve_game(&game_running));
+        assert!(!try_reserve_game(&game_running));
+
+        release_game(&game_running);
+
+        assert!(try_reserve_game(&game_running));
+    }
 
     struct TestDirectory(PathBuf);
 

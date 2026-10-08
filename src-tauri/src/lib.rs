@@ -16,7 +16,8 @@ pub fn run() {
             ui_commands::cancel_operation,
             ui_commands::check_client_status,
             ui_commands::update_client,
-            ui_commands::launch_game
+            ui_commands::launch_game,
+            ui_commands::get_game_running
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
