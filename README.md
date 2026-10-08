@@ -83,6 +83,10 @@ cada investigación, con fuentes, queda reflejado en el historial de decisiones 
   tu plataforma (en Linux: `webkit2gtk`, `libsoup-3.0`, `javascriptcoregtk`,
   `libayatana-appindicator3`, `librsvg2`).
 - [Node.js](https://nodejs.org/) y `npm`, para el frontend.
+- En Windows: *Build Tools for Visual Studio* con la carga «Desarrollo para el escritorio con
+  C++» (necesaria para que Rust enlace) y WebView2 (incluido en Windows 10/11 actualizados).
+- Ejecutar siempre `npm install` antes del primer `npm run tauri dev` o `npm run build`; sin él
+  fallan con «`tauri` no se reconoce» o «`tsc` no se reconoce».
 
 ### Comandos
 

@@ -6,6 +6,10 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+### Cambiado
+
+- README: requisitos de Windows y paso obligatorio `npm install`.
+
 ## [0.1.0] - 2026-10-08
 
 Primera versión funcional de desarrollo. Todavía no hay instalador ni release publicada del
