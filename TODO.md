@@ -17,6 +17,7 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 - [x] Reparación de archivos dañados (es la misma ruta que actualizar)
 - [x] Descarga del cliente completo desde cero (probado de extremo a extremo en Linux, 44/44)
 - [x] `realmlist.wtf` gestionado como archivo del manifest
+- [x] Publicación automática de parches y addon desde `acore-sod` (`scripts/publicar-parches.sh`)
 - [x] Primera pantalla funcional, CHANGELOG, versionado SemVer y scripts de preparación del entorno
 
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
@@ -27,6 +28,8 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
 - [ ] Progreso real: bytes, velocidad y tiempo restante (hoy solo "archivo N de M")
 - [ ] Cancelar y reanudar una actualización desde la UI; mensajes claros ante fallos de red
+- [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero
+      al volver a abrir el launcher) y limpiar carpetas temporales huérfanas
 - [ ] Opción de borrar caché (`Cache/WDB`)
 - [ ] Logging a archivo, útil para soporte
 - [ ] Probar el recorrido completo en Windows: descarga, reparación, `Wow.exe` arrancando con los

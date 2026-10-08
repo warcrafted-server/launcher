@@ -32,3 +32,6 @@ docs/hashes-cliente.csv
 # Locks de sesión de Claude Code, locales
 scheduled_tasks.lock
 .claude/scheduled_tasks.lock
+
+# Caché de Python
+__pycache__/

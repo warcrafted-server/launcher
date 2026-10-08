@@ -8,6 +8,9 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Añadido
 
+- Publicación automática de parches y addon obligatorio (`scripts/publicar-parches.sh`, ver
+  `docs/contenido/PUBLICAR-PARCHES.md`): assets versionados, verificación, firma del manifest y
+  retención de las 5 últimas versiones.
 - `scripts/setup.ps1` y `scripts/setup.sh`: instalan automáticamente las dependencias de
   desarrollo (Node.js, Rust, compilador C++, WebView2 o librerías de Linux) y ejecutan `npm install`.
 
@@ -18,6 +21,8 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Corregido
 
+- El addon RuneEngraver se instala en `Interface/AddOns/` (antes, por error, en
+  `Data/Interface/AddOns/`, donde WoW no lo carga). Se aplica en la próxima publicación de parches.
 - La extracción de addons (`kind: archive`) sustituye solo las carpetas que trae el `.tar`; antes
   reemplazaba la carpeta destino entera y habría borrado los demás addons del jugador.
 - `scripts/setup.ps1` se guarda con BOM UTF-8 para que PowerShell 5.1 muestre bien los acentos.

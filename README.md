@@ -135,6 +135,7 @@ y el historial en [`CHANGELOG.md`](CHANGELOG.md).
 - [`CHANGELOG.md`](CHANGELOG.md) y [`docs/VERSIONADO.md`](docs/VERSIONADO.md) — historial de
   versiones y cómo se publican.
 - [`TODO.md`](TODO.md) — lo que falta, por orden de prioridad.
+- [`docs/contenido/PUBLICAR-PARCHES.md`](docs/contenido/PUBLICAR-PARCHES.md) — cómo se publican parches y addons.
 - [`docs/ESTADO.md`](docs/ESTADO.md) — estado actual, qué toca ahora y cómo retomar el trabajo.
 
 ## Licencia
