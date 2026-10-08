@@ -25,7 +25,10 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 - [x] Ruta del cliente configurable y persistente (selector de carpeta, guardada en ajustes)
 - [x] Build 12340 garantizado por la integridad: el hash de `Wow.exe` está en el manifest
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
-- [ ] Progreso real: bytes, velocidad y tiempo restante (hoy solo "archivo N de M")
+- [ ] Progreso de descarga en bytes, con velocidad y tiempo restante (la verificación ya muestra
+      bytes; la descarga aún va por archivos)
+- [ ] Verificación rápida: recordar tamaño y fecha de los archivos ya verificados para no volver a
+      calcular 18,5 GB de hashes en cada comprobación
 - [ ] Cancelar y reanudar una actualización desde la UI; mensajes claros ante fallos de red
 - [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero
       al volver a abrir el launcher) y limpiar carpetas temporales huérfanas

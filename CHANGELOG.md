@@ -8,6 +8,9 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Añadido
 
+- Nuevo diseño con el logo de WarCrafted: cabecera con logo, tarjeta de carpeta del cliente,
+  resumen de estado con detalles desplegables y barra inferior con progreso y botón JUGAR.
+- Progreso en tiempo real de la verificación de archivos (archivo actual y bytes).
 - Selector de la carpeta del cliente; la ruta se guarda en los ajustes del launcher.
 - Botón «Borrar caché», con confirmación.
 - Publicación automática de parches y addon obligatorio (`scripts/publicar-parches.sh`, ver
@@ -18,6 +21,8 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Cambiado
 
+- La verificación descarta primero por tamaño, sin calcular el hash de archivos que no coinciden.
+- Ventana de 1100×720 (mínimo 960×640).
 - Los comandos ya no reciben rutas ni el ejecutable desde la interfaz: el backend usa la carpeta
   guardada y lanza siempre `Wow.exe`.
 - `TODO.md` con las tareas pendientes priorizadas.

@@ -3,96 +3,83 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111820" />
+    <meta name="theme-color" content="#0b0d10" />
     <title>WarCrafted Launcher</title>
     <link rel="stylesheet" href="/src/styles.css" />
     <script type="module" src="/src/main.ts" defer></script>
   </head>
   <body>
     <main class="launcher-shell">
-      <header class="topbar">
-        <a class="wordmark" href="#inicio" aria-label="WarCrafted Launcher, inicio">
-          <span>WarCrafted <span class="wordmark-light">Launcher</span></span>
-        </a>
-        <span class="build-label">WotLK · Build 12340</span>
+      <header class="hero" aria-labelledby="realm-caption">
+        <img class="brand-logo" id="brand-logo" alt="WarCrafted" />
+        <p class="realm-caption" id="realm-caption">Reino IceTracks <span aria-hidden="true">·</span> WotLK 3.3.5a</p>
       </header>
 
-      <section class="welcome-panel" id="inicio" aria-labelledby="welcome-title">
-        <div class="welcome-copy">
-          <p class="eyebrow">REINO ICETRACKS</p>
-          <h1 id="welcome-title">Tu aventura<br />empieza aquí.</h1>
-          <p class="welcome-description">
-            Comprueba y prepara los archivos del juego antes de entrar al reino.
+      <section class="folder-card panel" aria-labelledby="folder-title">
+        <div class="folder-copy">
+          <p class="eyebrow">PREPARACIÓN DEL JUEGO</p>
+          <h1 id="folder-title">Carpeta del cliente</h1>
+          <p class="client-location" id="client-location">Ninguna carpeta elegida</p>
+          <p class="client-folder-help" id="client-folder-help" hidden>
+            El cliente completo ocupa aproximadamente 18,5 GB.
           </p>
         </div>
-        <div class="realm-card" aria-label="Estado del reino">
-          <div>
-            <span class="realm-label">REINO OBJETIVO</span>
-            <strong>IceTracks</strong>
-          </div>
-          <span class="realm-version">3.3.5a</span>
-        </div>
+        <button class="button button-secondary" id="choose-folder-button" type="button">
+          Elegir carpeta…
+        </button>
       </section>
 
-      <section class="client-panel panel" aria-labelledby="client-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">PREPARACIÓN DEL JUEGO</p>
-            <h2 id="client-title">Estado del cliente</h2>
-          </div>
-          <div class="client-location-row">
-            <span class="client-location" id="client-location">Ninguna carpeta elegida</span>
-            <button class="button button-secondary" id="choose-folder-button" type="button">
-              Elegir carpeta…
-            </button>
-          </div>
+      <section class="client-summary" aria-label="Estado del cliente">
+        <div class="summary-copy" id="client-summary" aria-live="polite">
+          <span class="status-icon" id="status-icon" aria-hidden="true">○</span>
+          <span id="status-text">Sin comprobar</span>
         </div>
-
-        <p class="client-folder-help" id="client-folder-help">
-          Elige la carpeta del cliente. Si es nueva, el launcher descargará el cliente completo (unos 18,5 GB).
-        </p>
-
-        <div class="action-row">
-          <button class="button button-secondary" id="check-button" type="button">
-            Comprobar estado
-          </button>
-          <button class="button button-primary" id="update-button" type="button">
-            Actualizar
-          </button>
-          <button class="button button-secondary" id="clear-cache-button" type="button">
-            Borrar caché
-          </button>
-          <button class="button button-play" id="play-button" type="button" disabled>
-            <span class="play-icon" aria-hidden="true">▶</span>
-            Jugar
-          </button>
-        </div>
-
-        <div class="operation-message" id="operation-message" role="status" aria-live="polite" hidden></div>
-
-        <section class="progress-section" id="progress-section" aria-labelledby="progress-title" hidden>
-          <div class="progress-heading">
-            <h3 id="progress-title">Actualizando cliente</h3>
-            <span id="progress-count">Preparando…</span>
-          </div>
-          <progress id="update-progress" max="1" value="0" aria-label="Progreso de actualización"></progress>
-          <p class="progress-detail" id="progress-detail">Preparando la actualización…</p>
-        </section>
-
-        <section class="file-section" aria-labelledby="files-title">
-          <div class="file-list-heading">
-            <h3 id="files-title">Archivos comprobados</h3>
-            <span id="file-count">Aún no comprobados</span>
-          </div>
-          <ul class="file-list" id="file-list" aria-live="polite">
-            <li class="empty-state">Comprueba el estado para ver los archivos del cliente.</li>
-          </ul>
-        </section>
+        <button class="details-toggle" id="details-toggle" type="button" aria-expanded="false" aria-controls="file-section">
+          <span id="details-label">Ver detalles</span>
+          <span class="chevron" aria-hidden="true">⌄</span>
+        </button>
       </section>
 
-      <footer class="footer-note">
-        <span>El cliente se valida antes de iniciar el juego.</span>
-        <span>WarCrafted Launcher</span>
+      <section class="file-section panel" id="file-section" aria-labelledby="files-title" hidden>
+        <div class="file-list-heading">
+          <h2 id="files-title">Archivos del cliente</h2>
+          <span id="file-count">Aún no comprobados</span>
+        </div>
+        <ul class="file-list" id="file-list" aria-live="polite">
+          <li class="empty-state">Comprueba el estado para ver los archivos del cliente.</li>
+        </ul>
+      </section>
+
+      <div class="operation-message" id="operation-message" role="status" aria-live="polite" hidden></div>
+
+      <footer class="action-dock" aria-label="Acciones del cliente">
+        <div class="action-group">
+          <button class="button button-secondary action-button" id="check-button" type="button" disabled>
+            <span class="button-spinner" aria-hidden="true" hidden></span>
+            <span class="button-label">Comprobar</span>
+          </button>
+          <button class="button button-secondary action-button" id="update-button" type="button" disabled>
+            <span class="button-spinner" aria-hidden="true" hidden></span>
+            <span class="button-label">Actualizar</span>
+          </button>
+          <button class="button button-secondary action-button" id="clear-cache-button" type="button" disabled>
+            <span class="button-spinner" aria-hidden="true" hidden></span>
+            <span class="button-label">Borrar caché</span>
+          </button>
+        </div>
+
+        <div class="progress-area" aria-live="polite">
+          <div class="progress-meter" id="progress-meter" hidden>
+            <progress id="update-progress" max="1" value="0" aria-label="Progreso del cliente"></progress>
+          </div>
+          <p class="progress-status" id="progress-status">Elige la carpeta del cliente para comenzar.</p>
+        </div>
+
+        <button class="button button-play action-button" id="play-button" type="button" disabled>
+          <span class="button-spinner" aria-hidden="true" hidden></span>
+          <span class="play-icon" aria-hidden="true">▶</span>
+          <span class="button-label">JUGAR</span>
+        </button>
       </footer>
     </main>
   </body>
