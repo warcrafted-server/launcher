@@ -72,6 +72,12 @@ body:has(.operation-message:not([hidden])) .launcher-shell {
   flex-direction: column;
   align-items: center;
   justify-content: flex-end;
+  transition: height 220ms ease, flex-basis 220ms ease;
+}
+
+.launcher-shell:has(.file-section:not([hidden])) .hero {
+  height: 110px;
+  flex-basis: 110px;
 }
 
 .brand-logo {
@@ -119,6 +125,13 @@ body:has(.operation-message:not([hidden])) .launcher-shell {
 
 .folder-copy {
   min-width: 0;
+}
+
+.folder-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
 }
 
 .eyebrow {
@@ -238,6 +251,20 @@ h1 {
   letter-spacing: 0.015em;
 }
 
+.summary-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.summary-description {
+  color: var(--muted);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 10px;
+  letter-spacing: 0;
+}
+
 .status-icon {
   width: 25px;
   height: 25px;
@@ -311,6 +338,7 @@ h1 {
 }
 
 .file-section:not([hidden]) {
+  min-height: 220px;
   animation: reveal 190ms ease-out both;
 }
 
@@ -334,10 +362,35 @@ h1 {
   font-size: 10px;
 }
 
+.file-list-options {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.show-healthy-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #c0b8a6;
+  cursor: pointer;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.show-healthy-option input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  accent-color: var(--gold);
+}
+
 .file-list {
-  min-height: 0;
-  display: grid;
-  align-content: start;
+  min-height: 180px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   margin: 0;
   padding: 0 4px 0 0;
@@ -348,10 +401,11 @@ h1 {
 }
 
 .file-row {
-  min-height: 39px;
+  flex: 0 0 auto;
+  min-height: 56px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 4px 12px;
   padding: 7px 10px;
   border: 1px solid rgba(212, 169, 74, 0.12);
@@ -369,38 +423,64 @@ h1 {
 .file-details {
   min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.file-name {
+  max-width: 100%;
+  overflow: hidden;
+  color: #eee2c3;
+  font-size: 11px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .file-path {
   min-width: 0;
-  overflow: hidden;
+  overflow-wrap: anywhere;
   color: #cfc8b8;
   font-family: Consolas, "Cascadia Mono", monospace;
   font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .file-role {
   flex: 0 0 auto;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
 }
 
 .file-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 7px;
+  border: 1px solid rgba(111, 207, 143, 0.25);
+  border-radius: 99px;
+  background: rgba(24, 63, 39, 0.18);
   color: var(--success);
   font-size: 10px;
   font-weight: 650;
+  white-space: nowrap;
+}
+
+.file-status-icon {
+  font-size: 11px;
 }
 
 .file-row[data-status="missing"] .file-status,
 .file-row[data-status="corrupt"] .file-status {
+  border-color: rgba(232, 180, 90, 0.3);
+  background: rgba(95, 66, 26, 0.2);
   color: var(--warning);
 }
 
 .file-row[data-status="error"] .file-status {
+  border-color: rgba(224, 104, 95, 0.3);
+  background: rgba(74, 31, 29, 0.22);
   color: var(--error);
 }
 
@@ -448,6 +528,12 @@ h1 {
   color: #f0d39e;
 }
 
+.operation-message[data-kind="info"] {
+  border-color: rgba(63, 169, 255, 0.38);
+  background: rgba(15, 24, 31, 0.96);
+  color: #c7d9e4;
+}
+
 .operation-message[data-kind="error"] {
   border-color: rgba(224, 104, 95, 0.47);
   background: rgba(47, 22, 21, 0.97);
@@ -462,7 +548,7 @@ h1 {
   left: 0;
   min-height: 108px;
   display: grid;
-  grid-template-columns: auto minmax(190px, 1fr) auto;
+  grid-template-columns: auto minmax(120px, 1fr) auto auto;
   align-items: center;
   gap: clamp(14px, 2.2vw, 29px);
   padding: 14px clamp(28px, 5vw, 66px);
@@ -480,6 +566,15 @@ h1 {
 
 .action-button {
   min-height: 40px;
+}
+
+.cancel-button {
+  min-height: 40px;
+  white-space: nowrap;
+}
+
+.cancel-button:not(:disabled) {
+  cursor: pointer !important;
 }
 
 .action-group .button {

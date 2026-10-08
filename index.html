@@ -24,15 +24,23 @@
             El cliente completo ocupa aproximadamente 18,5 GB.
           </p>
         </div>
-        <button class="button button-secondary" id="choose-folder-button" type="button">
-          Elegir carpeta…
-        </button>
+        <div class="folder-actions">
+          <button class="button button-secondary" id="choose-folder-button" type="button">
+            Elegir carpeta…
+          </button>
+          <button class="button button-secondary" id="new-install-button" type="button">
+            Nueva instalación…
+          </button>
+        </div>
       </section>
 
       <section class="client-summary" aria-label="Estado del cliente">
         <div class="summary-copy" id="client-summary" aria-live="polite">
           <span class="status-icon" id="status-icon" aria-hidden="true">○</span>
-          <span id="status-text">Sin comprobar</span>
+          <span class="summary-text">
+            <span id="status-text">Sin comprobar</span>
+            <span class="summary-description" id="summary-description"></span>
+          </span>
         </div>
         <button class="details-toggle" id="details-toggle" type="button" aria-expanded="false" aria-controls="file-section">
           <span id="details-label">Ver detalles</span>
@@ -43,7 +51,13 @@
       <section class="file-section panel" id="file-section" aria-labelledby="files-title" hidden>
         <div class="file-list-heading">
           <h2 id="files-title">Archivos del cliente</h2>
-          <span id="file-count">Aún no comprobados</span>
+          <div class="file-list-options">
+            <label class="show-healthy-option" for="show-healthy-files">
+              <input id="show-healthy-files" type="checkbox" />
+              Mostrar también los correctos
+            </label>
+            <span id="file-count">Aún no comprobados</span>
+          </div>
         </div>
         <ul class="file-list" id="file-list" aria-live="polite">
           <li class="empty-state">Comprueba el estado para ver los archivos del cliente.</li>
@@ -74,6 +88,9 @@
           </div>
           <p class="progress-status" id="progress-status">Elige la carpeta del cliente para comenzar.</p>
         </div>
+        <button class="button button-secondary cancel-button" id="cancel-button" type="button" hidden>
+          Cancelar
+        </button>
 
         <button class="button button-play action-button" id="play-button" type="button" disabled>
           <span class="button-spinner" aria-hidden="true" hidden></span>

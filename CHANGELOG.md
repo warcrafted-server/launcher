@@ -8,6 +8,10 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Añadido
 
+- Botón «Cancelar» durante la comprobación y la actualización.
+- «Nueva instalación…»: crea la carpeta «WarCrafted WotLK» en la ubicación elegida e instala el
+  cliente completo; si la carpeta no tiene cliente, el botón principal pasa a «Instalar».
+- Detalles de archivos con los problemáticos primero y el motivo de cada uno.
 - Nuevo diseño con el logo de WarCrafted: cabecera con logo, tarjeta de carpeta del cliente,
   resumen de estado con detalles desplegables y barra inferior con progreso y botón JUGAR.
 - Progreso en tiempo real de la verificación de archivos (archivo actual y bytes).

@@ -31,7 +31,11 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
       bytes; la descarga aún va por archivos)
 - [ ] Verificación rápida: recordar tamaño y fecha de los archivos ya verificados para no volver a
       calcular 18,5 GB de hashes en cada comprobación
-- [ ] Cancelar y reanudar una actualización desde la UI; mensajes claros ante fallos de red
+- [x] Cancelar la comprobación y la actualización desde la UI (la actualización se detiene entre
+      archivos)
+- [ ] Cancelar también a mitad de un archivo grande y reanudarlo después; mensajes claros ante
+      fallos de red
+- [x] Instalación nueva: crear la carpeta del cliente desde el launcher
 - [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero
       al volver a abrir el launcher) y limpiar carpetas temporales huérfanas
 - [x] Opción de borrar caché
