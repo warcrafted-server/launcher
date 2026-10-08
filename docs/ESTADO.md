@@ -1,7 +1,7 @@
 # Estado del launcher
 
 Mantén este archivo al día con cada cambio relevante, no al final de la tarea. Es lo primero que
-lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-08**.
+lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-08** (versión 0.1.0).
 
 ## Dónde estamos
 
@@ -103,15 +103,16 @@ arquitectura):**
 
 ## Próximo paso
 
-1. Diseñar e implementar los comandos Tauri de UI que orquesten el motor ya existente: verificar
-   estado del cliente, descargar/reparar vía `staging`, lanzar el juego. Todavía no existe ningún
-   comando real en `ui_commands.rs`, solo el `greet` de ejemplo del scaffold.
-2. Primera pantalla real del launcher (`src/`), sustituyendo el scaffold por defecto de Tauri.
+La versión actual es la 0.1.0 (ver `CHANGELOG.md` y `docs/VERSIONADO.md`). Ya existen los comandos
+Tauri (`check_client_status`, `update_client`, `launch_game`) y una primera pantalla funcional.
+
+1. Abrir y probar la ventana real (`npm run tauri dev`) en una sesión gráfica: solo se ha
+   verificado que compila y que el proceso arranca.
+2. Selector de carpeta de instalación (hoy ruta fija temporal `./warcrafted-client`).
 3. Validar en Windows (todo lo probado hasta ahora es en Linux): presencia de WebView2, que el
    cliente arranque de verdad tras aplicar parches, rendimiento real de descarga.
-4. Considerar descarga en paralelo (hoy el motor descarga archivo por archivo, de uno en uno —
-   funciona pero es más lento de lo que podría ser; no es un defecto del diseño, es una decisión
-   de alcance pendiente de revisar).
+4. Considerar descarga en paralelo (hoy archivo por archivo; decisión de alcance pendiente).
+5. Quitar el comando `greet` sobrante del scaffold en `ui_commands.rs`.
 
 ## No hacer
 

@@ -5,7 +5,7 @@ Warcraft: Wrath of the Lich King (build 3.3.5a / 12340). Es el punto de entrada 
 detecta y prepara el cliente, descarga y verifica parches y addons obligatorios, repara archivos
 dañados y lanza el juego, sin que el jugador tenga que gestionar nada a mano.
 
-> **Estado del proyecto: en desarrollo activo, sin versión jugable todavía.** Este README
+> **Estado del proyecto: en desarrollo activo (versión 0.1.0), sin instalador ni release todavía.** Este README
 > describe lo que existe hoy, no un objetivo final. El estado detallado y los próximos pasos
 > viven en [`docs/ESTADO.md`](docs/ESTADO.md).
 
@@ -27,9 +27,9 @@ dañados y lanza el juego, sin que el jugador tenga que gestionar nada a mano.
 |---|---|
 | `update_engine::manifest` — formato, parseo y validación del manifest de contenido (firma Ed25519, anti-rollback, protección contra path traversal) | ✅ Implementado y con tests |
 | `update_engine::integrity` — verificación de hashes SHA-256 de archivos locales | ✅ Implementado y con tests |
-| `update_engine::staging` — descarga con reintentos/reanudación, ensamblado de archivos fragmentados, extracción segura y aplicación atómica | 🚧 En desarrollo |
-| Interfaz de usuario (ventana principal, noticias, addons, configuración) | ⏳ Pendiente, no empezada |
-| Lanzamiento del juego y comando de arranque | ⏳ Pendiente |
+| `update_engine::staging` — descarga con reintentos/reanudación, ensamblado de archivos fragmentados, extracción segura y aplicación atómica | ✅ Implementado y con tests |
+| Comandos Tauri `check_client_status`, `update_client`, `launch_game` | ✅ Implementado |
+| Interfaz: primera pantalla (comprobar, actualizar con progreso, jugar) | 🚧 Primera versión; faltan selector de carpeta, noticias, addons opcionales y configuración |
 | Primer manifest de contenido real (cliente base en español) | ✅ Publicado, ver `docs/contenido/manifest.json` |
 
 ## Stack técnico
@@ -40,8 +40,8 @@ dañados y lanza el juego, sin que el jugador tenga que gestionar nada a mano.
 - **Backend (`src-tauri/`)**: Rust. El núcleo de actualización/integridad
   (`update_engine/`) es un módulo propio, independiente de los comandos de interfaz —
   nunca se mezcla lógica de actualización con código de UI.
-- **Frontend (`src/`)**: HTML/TypeScript, todavía sin diseño de producto (solo el esqueleto
-  inicial de Tauri).
+- **Frontend (`src/`)**: HTML/TypeScript sin framework. Primera pantalla funcional; la identidad
+  visual definitiva está pendiente.
 
 ## Arquitectura del contenido
 
@@ -87,10 +87,30 @@ cada investigación, con fuentes, queda reflejado en el historial de decisiones 
 ### Comandos
 
 ```bash
-npm install          # dependencias del frontend
-npm run tauri dev    # arranca el launcher en modo desarrollo
+npm install                  # dependencias del frontend
+npm run tauri dev            # arranca el launcher en modo desarrollo
+npm run build                # compila el frontend (TypeScript + Vite)
 cd src-tauri && cargo test   # tests del backend Rust
 ```
+
+## Uso
+
+Con `npm run tauri dev` se abre la ventana del launcher (hace falta un entorno gráfico):
+
+1. **Comprobar estado**: descarga el manifest firmado, verifica su firma y compara cada archivo
+   del cliente con su hash. Lista los archivos correctos, ausentes o modificados.
+2. **Actualizar**: descarga y repara solo lo que falta o no coincide, con barra de progreso.
+3. **Jugar**: se habilita tras la primera comprobación y lanza `Wow.exe` únicamente si todos los
+   archivos obligatorios son válidos.
+
+Por ahora el cliente se busca en la ruta fija `./warcrafted-client` (relativa a `src-tauri/` en
+modo desarrollo). La primera actualización completa descarga unos 18,5 GB: conviene apuntar a un
+disco con espacio. Un selector de carpeta llegará en una versión posterior.
+
+## Versionado y cambios
+
+El proyecto usa SemVer `X.Y.Z`; el procedimiento está en [`docs/VERSIONADO.md`](docs/VERSIONADO.md)
+y el historial en [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Documentación del proyecto
 
@@ -99,6 +119,8 @@ cd src-tauri && cargo test   # tests del backend Rust
 - [`docs/decisiones/`](docs/decisiones/) — decisiones de arquitectura (ADR), una por archivo, con
   fecha, alternativas consideradas y motivo.
 - [`docs/investigacion/`](docs/investigacion/) — informes de investigación con fuentes citadas.
+- [`CHANGELOG.md`](CHANGELOG.md) y [`docs/VERSIONADO.md`](docs/VERSIONADO.md) — historial de
+  versiones y cómo se publican.
 - [`docs/ESTADO.md`](docs/ESTADO.md) — estado actual, qué toca ahora y cómo retomar el trabajo.
 
 ## Licencia
