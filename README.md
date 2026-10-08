@@ -134,6 +134,7 @@ y el historial en [`CHANGELOG.md`](CHANGELOG.md).
 - [`docs/investigacion/`](docs/investigacion/) — informes de investigación con fuentes citadas.
 - [`CHANGELOG.md`](CHANGELOG.md) y [`docs/VERSIONADO.md`](docs/VERSIONADO.md) — historial de
   versiones y cómo se publican.
+- [`TODO.md`](TODO.md) — lo que falta, por orden de prioridad.
 - [`docs/ESTADO.md`](docs/ESTADO.md) — estado actual, qué toca ahora y cómo retomar el trabajo.
 
 ## Licencia

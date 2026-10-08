@@ -1,4 +1,4 @@
-# Prepara el entorno de desarrollo en Windows: instala lo que falte con winget.
+﻿# Prepara el entorno de desarrollo en Windows: instala lo que falte con winget.
 # Uso (desde la raíz del repo): powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 $ErrorActionPreference = "Stop"
 

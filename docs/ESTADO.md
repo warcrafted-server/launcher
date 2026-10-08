@@ -106,13 +106,8 @@ arquitectura):**
 La versión actual es la 0.1.0 (ver `CHANGELOG.md` y `docs/VERSIONADO.md`). Ya existen los comandos
 Tauri (`check_client_status`, `update_client`, `launch_game`) y una primera pantalla funcional.
 
-1. Abrir y probar la ventana real (`npm run tauri dev`) en una sesión gráfica: solo se ha
-   verificado que compila y que el proceso arranca.
-2. Selector de carpeta de instalación (hoy ruta fija temporal `./warcrafted-client`).
-3. Validar en Windows (todo lo probado hasta ahora es en Linux): presencia de WebView2, que el
-   cliente arranque de verdad tras aplicar parches, rendimiento real de descarga.
-4. Considerar descarga en paralelo (hoy archivo por archivo; decisión de alcance pendiente).
-5. Quitar el comando `greet` sobrante del scaffold en `ui_commands.rs`.
+Las tareas pendientes, por orden de prioridad, viven en [`TODO.md`](../TODO.md); no se duplican
+aquí.
 
 ## No hacer
 

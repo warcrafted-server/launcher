@@ -13,7 +13,12 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Cambiado
 
+- `TODO.md` con las tareas pendientes priorizadas.
 - README: requisitos de Windows y paso obligatorio `npm install`.
+
+### Corregido
+
+- `scripts/setup.ps1` se guarda con BOM UTF-8 para que PowerShell 5.1 muestre bien los acentos.
 
 ## [0.1.0] - 2026-10-08
 
