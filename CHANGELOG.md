@@ -29,6 +29,8 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Corregido
 
+- `setup.ps1` añade `%USERPROFILE%\.cargo\bin` al PATH de usuario permanente; antes una terminal
+  nueva podía no encontrar `cargo`.
 - El addon RuneEngraver se instala en `Interface/AddOns/` (antes, por error, en
   `Data/Interface/AddOns/`, donde WoW no lo carga). Se aplica en la próxima publicación de parches.
 - La extracción de addons (`kind: archive`) sustituye solo las carpetas que trae el `.tar`; antes

@@ -43,6 +43,16 @@ if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     rustup default stable-x86_64-pc-windows-msvc
 }
 
+# rustup no siempre deja .cargo\bin en el PATH permanente; sin esto, una terminal nueva no
+# encuentra cargo y "npm run tauri dev" falla.
+$cargoBin = Join-Path $env:USERPROFILE ".cargo\bin"
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+if (-not $userPath) { $userPath = "" }
+if ((Test-Path $cargoBin) -and -not (($userPath -split ";") -contains $cargoBin)) {
+    [Environment]::SetEnvironmentVariable("Path", ((@($userPath.TrimEnd(";"), $cargoBin) | Where-Object { $_ }) -join ";"), "User")
+    Write-Host "Añadido $cargoBin al PATH de usuario."
+}
+
 # WebView2 viene con Windows 10/11 actualizados; se instala solo si falta.
 $webview2Key = "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
 if (-not (Test-Path $webview2Key)) {
