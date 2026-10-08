@@ -5,7 +5,12 @@ pub mod update_engine;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![ui_commands::greet])
+        .invoke_handler(tauri::generate_handler![
+            ui_commands::greet,
+            ui_commands::check_client_status,
+            ui_commands::update_client,
+            ui_commands::launch_game
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
