@@ -1,102 +1,44 @@
 {
-  "schemaVersion": 1,
-  "realm": "icetracks",
   "channel": "production",
   "clientBuild": 12340,
-  "manifestVersion": 1,
-  "publishedAt": "2026-10-08T00:00:00Z",
-  "minLauncherVersion": "0.1.0",
   "files": [
     {
+      "kind": "clientBase",
       "path": "Battle.net.dll",
       "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 15588224,
       "sha256": "88116951b04723cbb1073a1a0ff72dfdc40367f6649dffd08c602caa3ef1141f",
+      "sizeBytes": 15588224,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Battle.net.dll",
         "compressedSizeBytes": 15588224,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Battle.net.dll"
       }
     },
     {
-      "path": "DivxDecoder.dll",
+      "kind": "archive",
+      "path": "Data/Interface/AddOns/RuneEngraver.tar",
       "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 413696,
-      "sha256": "ed34d37b575c91a56704218eb9f6abbefda8b7de0e2ed44c96191abd0f9915a5",
+      "sha256": "8ee040b1686e579ef6ed13b920e5578a79de27b515b6cc03abb38d3d84bc37a9",
+      "sizeBytes": 77824,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/DivxDecoder.dll",
-        "compressedSizeBytes": 413696,
-        "compression": "none"
+        "compressedSizeBytes": 77824,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/RuneEngraver/RuneEngraver.tar"
       }
     },
     {
-      "path": "Repair.exe",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 975512,
-      "sha256": "cd95fc2ddc3d8f7b9c9d9c9d3fd0adb62cd16e56e65f47f331f6aa335b10b04b",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Repair.exe",
-        "compressedSizeBytes": 975512,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "Scan.dll",
+      "path": "Data/common-2.MPQ",
       "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 49924,
-      "sha256": "4fe56f1bf1bfa4171af7c53a731576bfc7818d36c6ea73658739f2f286d12da3",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Scan.dll",
-        "compressedSizeBytes": 49924,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "Wow.exe",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 7704216,
-      "sha256": "aa63a5750d60ef16746c686b3d5e26876d98953eab08b1c026cd0faf78e88cb8",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Wow.exe",
-        "compressedSizeBytes": 7704216,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "WowError.exe",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 350360,
-      "sha256": "964eb9ed647c4614f3a3ecf977955750223ecbc8ff0a3bb4078e4dff779244f8",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WowError.exe",
-        "compressedSizeBytes": 350360,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "common-2.MPQ",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 1814309500,
       "sha256": "f25a47931e7d3d8f8e7d8352315ec71d648d8d43826f49ac9bee717cf981020c",
+      "sizeBytes": 1814309500,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common-2.MPQ",
         "compressedSizeBytes": 1814309500,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common-2.MPQ"
       }
     },
     {
-      "path": "common.MPQ",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 2884769683,
-      "sha256": "ff3c7e6291d97d080af50700de68b663e175c213d0170bd3636b1b162ed325fc",
       "assembly": {
         "partSizeBytes": 1992294400,
         "parts": [
@@ -104,353 +46,341 @@
             "sha256": "1f269f5f4949338dbfe5979589ca1e34f12f34d69c53dfa4c1fe8a464a70097f",
             "sizeBytes": 1992294400,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common.MPQ.part-000",
               "compressedSizeBytes": 1992294400,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common.MPQ.part-000"
             }
           },
           {
             "sha256": "cb71553dfd05bccb139d37affd70a8ff17cb8e619209982a152f8e259e61df5e",
             "sizeBytes": 892475283,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common.MPQ.part-001",
               "compressedSizeBytes": 892475283,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/common.MPQ.part-001"
             }
           }
         ]
-      }
+      },
+      "kind": "clientBase",
+      "path": "Data/common.MPQ",
+      "role": "required",
+      "sha256": "ff3c7e6291d97d080af50700de68b663e175c213d0170bd3636b1b162ed325fc",
+      "sizeBytes": 2884769683
     },
     {
-      "path": "dbghelp.dll",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 1039728,
-      "sha256": "3f9ad6986eb1f3a09eb0b5cad888ba656f9148b3339399076f2541b3bc59213c",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/dbghelp.dll",
-        "compressedSizeBytes": 1039728,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "esES/Interface/Cinematics/Logo_1024.avi",
+      "path": "Data/esES/Interface/Cinematics/Logo_1024.avi",
       "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 6785982,
       "sha256": "52c4d197ade03484d107f355fb5fcafb74256c147b85d00b089aadabfed6a778",
+      "sizeBytes": 6785982,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Logo_1024.avi",
         "compressedSizeBytes": 6785982,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Logo_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/Logo_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 4660808,
+      "path": "Data/esES/Interface/Cinematics/Logo_800.avi",
+      "role": "required",
       "sha256": "12f6f146672caa782a5a0358ce641e654cefca74d4175c40572b57b2573f377f",
+      "sizeBytes": 4660808,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Logo_800.avi",
         "compressedSizeBytes": 4660808,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Logo_800.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_FotLK_1024.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 66007136,
+      "path": "Data/esES/Interface/Cinematics/WOW_FotLK_1024.avi",
+      "role": "required",
       "sha256": "5a43a94744d590e0b97d551015763c5acac2efcba066215d09cb8be28965371d",
+      "sizeBytes": 66007136,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_FotLK_1024.avi",
         "compressedSizeBytes": 66007136,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_FotLK_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_FotLK_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 57244820,
+      "path": "Data/esES/Interface/Cinematics/WOW_FotLK_800.avi",
+      "role": "required",
       "sha256": "88e14dbbb5955569385601a00aa9d33815f210d8fea63663c5b89fa8fa5293d3",
+      "sizeBytes": 57244820,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_FotLK_800.avi",
         "compressedSizeBytes": 57244820,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_FotLK_800.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_1024.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 48295994,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_1024.avi",
+      "role": "required",
       "sha256": "d4b9b65637ea9c937e707373d169bbd53f8ddbe18b4168e1452bbdcb507a5be9",
+      "sizeBytes": 48295994,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_1024.avi",
         "compressedSizeBytes": 48295994,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 41859668,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_800.avi",
+      "role": "required",
       "sha256": "8301fd2619e2bea4995c21f8de59b5ee1430b22faa5c0dba596f9abfc161f7b0",
+      "sizeBytes": 41859668,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_800.avi",
         "compressedSizeBytes": 41859668,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_800.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_BC_1024.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 47577088,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_BC_1024.avi",
+      "role": "required",
       "sha256": "3a3286e99036934454b52619ce6d780f969505aa88d67d15009daea235bb528a",
+      "sizeBytes": 47577088,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_BC_1024.avi",
         "compressedSizeBytes": 47577088,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_BC_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_BC_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 41263104,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_BC_800.avi",
+      "role": "required",
       "sha256": "92250ea4d1619c4e66db1a16c8a5b8d2ccb5169a5913c95f395cdfdfdba05fdc",
+      "sizeBytes": 41263104,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_BC_800.avi",
         "compressedSizeBytes": 41263104,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_BC_800.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_LK_1024.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 56177056,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_LK_1024.avi",
+      "role": "required",
       "sha256": "1744c04155777afecebcc54cb1b359737879e98b5da5f78091a470297592e41f",
+      "sizeBytes": 56177056,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_LK_1024.avi",
         "compressedSizeBytes": 56177056,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_LK_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Intro_LK_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 48820376,
+      "path": "Data/esES/Interface/Cinematics/WOW_Intro_LK_800.avi",
+      "role": "required",
       "sha256": "f11ca190728ea2d9c4f1b20f6001ef7a60370de765cd807b93923404b54cf52d",
+      "sizeBytes": 48820376,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_LK_800.avi",
         "compressedSizeBytes": 48820376,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Intro_LK_800.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Wrathgate_1024.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 75685834,
+      "path": "Data/esES/Interface/Cinematics/WOW_Wrathgate_1024.avi",
+      "role": "required",
       "sha256": "b4705822f9ce668bfe953dcc47e6bbd4cf74866ca8e912c4a2dcb6973d087d89",
+      "sizeBytes": 75685834,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Wrathgate_1024.avi",
         "compressedSizeBytes": 75685834,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Wrathgate_1024.avi"
       }
     },
     {
-      "path": "esES/Interface/Cinematics/WOW_Wrathgate_800.avi",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 65683896,
+      "path": "Data/esES/Interface/Cinematics/WOW_Wrathgate_800.avi",
+      "role": "required",
       "sha256": "1e7b7aae6deba5e153298aab24f780e3d57e2ea9f12a81e65eca73885d1b53e4",
+      "sizeBytes": 65683896,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Wrathgate_800.avi",
         "compressedSizeBytes": 65683896,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WOW_Wrathgate_800.avi"
       }
     },
     {
-      "path": "esES/backup-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 166220829,
+      "path": "Data/esES/backup-esES.MPQ",
+      "role": "required",
       "sha256": "d578e8d34b6c8f47b081adff70575887d872e9bedf858e6daa6625cafe7a9675",
+      "sizeBytes": 166220829,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/backup-esES.MPQ",
         "compressedSizeBytes": 166220829,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/backup-esES.MPQ"
       }
     },
     {
-      "path": "esES/base-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 32073055,
+      "path": "Data/esES/base-esES.MPQ",
+      "role": "required",
       "sha256": "8778ee5641cd171d82e42a44f4fdbe22b9ecb9a2a6657b34a645d743ae235f20",
+      "sizeBytes": 32073055,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/base-esES.MPQ",
         "compressedSizeBytes": 32073055,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/base-esES.MPQ"
       }
     },
     {
-      "path": "esES/expansion-locale-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 17421160,
+      "path": "Data/esES/expansion-locale-esES.MPQ",
+      "role": "required",
       "sha256": "24b4cdb8e5a99922717a3b20334c832adc0676d18db644a6c08e6d68690be5f9",
+      "sizeBytes": 17421160,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion-locale-esES.MPQ",
         "compressedSizeBytes": 17421160,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion-locale-esES.MPQ"
       }
     },
     {
-      "path": "esES/expansion-speech-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 238791238,
+      "path": "Data/esES/expansion-speech-esES.MPQ",
+      "role": "required",
       "sha256": "adbf315b04ac35093bf97b2e968e7ce90685c9ca2d48ce8484aa81f38bd0e764",
+      "sizeBytes": 238791238,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion-speech-esES.MPQ",
         "compressedSizeBytes": 238791238,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion-speech-esES.MPQ"
       }
     },
     {
-      "path": "esES/lichking-locale-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 12642311,
+      "path": "Data/esES/lichking-locale-esES.MPQ",
+      "role": "required",
       "sha256": "9205346cdd022df5006b8c263281beccbcac6b19b940e4be18a79ed1d2f1fdb3",
+      "sizeBytes": 12642311,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking-locale-esES.MPQ",
         "compressedSizeBytes": 12642311,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking-locale-esES.MPQ"
       }
     },
     {
-      "path": "esES/lichking-speech-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 16054787,
+      "path": "Data/esES/lichking-speech-esES.MPQ",
+      "role": "required",
       "sha256": "9f0044d82696e57e57f1dcf8c51f7fa90210a217ba89b745533e1fd07220264d",
+      "sizeBytes": 16054787,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking-speech-esES.MPQ",
         "compressedSizeBytes": 16054787,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking-speech-esES.MPQ"
       }
     },
     {
-      "path": "esES/locale-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 199060543,
+      "path": "Data/esES/locale-esES.MPQ",
+      "role": "required",
       "sha256": "9ced201e9412f08a05fcde7aa1ba45dcd22d5a2e9e4bd3e05ab72e781e5db900",
+      "sizeBytes": 199060543,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/locale-esES.MPQ",
         "compressedSizeBytes": 199060543,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/locale-esES.MPQ"
       }
     },
     {
-      "path": "esES/patch-esES-2.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 188641672,
+      "path": "Data/esES/patch-esES-2.MPQ",
+      "role": "required",
       "sha256": "fc090fa2b4e1bd937d910bb4a4d8a7503bc759e3b28c2c40756ff394e5eefcc9",
+      "sizeBytes": 188641672,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES-2.MPQ",
         "compressedSizeBytes": 188641672,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES-2.MPQ"
       }
     },
     {
-      "path": "esES/patch-esES-3.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 144306511,
+      "path": "Data/esES/patch-esES-3.MPQ",
+      "role": "required",
       "sha256": "fc09789ca86b2cce71dedcb1692d2b701f6b4be6098e9883cc3f8b783a0e1a09",
+      "sizeBytes": 144306511,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES-3.MPQ",
         "compressedSizeBytes": 144306511,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES-3.MPQ"
       }
     },
     {
-      "path": "esES/patch-esES.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 569197998,
+      "path": "Data/esES/patch-esES-Z.MPQ",
+      "role": "required",
+      "sha256": "5d498543733bac40cfd25a81ebabf555bdf73f29ddd269e1efeabab946c0f756",
+      "sizeBytes": 6328532,
+      "source": {
+        "compressedSizeBytes": 6328532,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z.MPQ"
+      }
+    },
+    {
+      "kind": "clientPatch",
+      "path": "Data/esES/patch-esES.MPQ",
+      "role": "required",
       "sha256": "b2f314876243ec1edf0b4b8dbae5d27cd01e811a436a8b129002b754e5584e94",
+      "sizeBytes": 569197998,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES.MPQ",
         "compressedSizeBytes": 569197998,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-esES.MPQ"
       }
     },
     {
-      "path": "esES/realmlist.wtf",
-      "role": "required",
       "kind": "config",
-      "sizeBytes": 34,
+      "path": "Data/esES/realmlist.wtf",
+      "role": "required",
       "sha256": "07538d2661627274e70b142badbd0a4ba49d098a768ca5d088fe9bdad28360ee",
+      "sizeBytes": 34,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/realmlist.wtf",
         "compressedSizeBytes": 34,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/realmlist.wtf"
       }
     },
     {
-      "path": "esES/speech-esES.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 403795412,
+      "path": "Data/esES/speech-esES.MPQ",
+      "role": "required",
       "sha256": "81dfc481ff27143bb932130220038098a20048def30cd2435d56cbd87a61efa9",
+      "sizeBytes": 403795412,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/speech-esES.MPQ",
         "compressedSizeBytes": 403795412,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/speech-esES.MPQ"
       }
     },
     {
-      "path": "expansion.MPQ",
-      "role": "required",
       "kind": "clientBase",
-      "sizeBytes": 1923425963,
+      "path": "Data/expansion.MPQ",
+      "role": "required",
       "sha256": "69f5dae6f52e361e27b2411510014a7ed93e609ef35c5245167b8e3ba61417ec",
+      "sizeBytes": 1923425963,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion.MPQ",
         "compressedSizeBytes": 1923425963,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/expansion.MPQ"
       }
     },
     {
-      "path": "ijl15.dll",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 372736,
-      "sha256": "334aa12f7dee453d1c6cb1b661a3bb3494d3e4cc9c2ff3f9002064c78404e43a",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/ijl15.dll",
-        "compressedSizeBytes": 372736,
-        "compression": "none"
-      }
-    },
-    {
-      "path": "lichking.MPQ",
-      "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 2581186393,
-      "sha256": "bef67179b46c97c12a0d2944ae6eb50616eb3da22d7c158896fab44548b9567e",
       "assembly": {
         "partSizeBytes": 1992294400,
         "parts": [
@@ -458,65 +388,65 @@
             "sha256": "880e51034f87264e7c2d2e93455f7de254fb14c0350820740a4ea1ea2cecf62f",
             "sizeBytes": 1992294400,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking.MPQ.part-000",
               "compressedSizeBytes": 1992294400,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking.MPQ.part-000"
             }
           },
           {
             "sha256": "63439351d6de1b49e95a0aec889c46c4899ee1c468c16b8ee38a0aab4e22e1df",
             "sizeBytes": 588891993,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking.MPQ.part-001",
               "compressedSizeBytes": 588891993,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/lichking.MPQ.part-001"
             }
           }
         ]
-      }
-    },
-    {
-      "path": "msvcr80.dll",
-      "role": "required",
+      },
       "kind": "clientBase",
-      "sizeBytes": 632656,
-      "sha256": "9382aaed2db19cd75a70e38964f06c63f19f63c9dfb5a33b0c2d445bb41b6e46",
-      "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/msvcr80.dll",
-        "compressedSizeBytes": 632656,
-        "compression": "none"
-      }
+      "path": "Data/lichking.MPQ",
+      "role": "required",
+      "sha256": "bef67179b46c97c12a0d2944ae6eb50616eb3da22d7c158896fab44548b9567e",
+      "sizeBytes": 2581186393
     },
     {
-      "path": "patch-2.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 1403129115,
+      "path": "Data/patch-2.MPQ",
+      "role": "required",
       "sha256": "40798b242484ab52f26512bbd46ea8bb48bba81a57b38df353b9c4cce0426ba3",
+      "sizeBytes": 1403129115,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-2.MPQ",
         "compressedSizeBytes": 1403129115,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-2.MPQ"
       }
     },
     {
-      "path": "patch-3.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 605089137,
+      "path": "Data/patch-3.MPQ",
+      "role": "required",
       "sha256": "56dbbfc8f9ce7182ca88538d75284e738020138a7ca4217d72d8168865510dd3",
+      "sizeBytes": 605089137,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-3.MPQ",
         "compressedSizeBytes": 605089137,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch-3.MPQ"
       }
     },
     {
-      "path": "patch.MPQ",
-      "role": "required",
       "kind": "clientPatch",
-      "sizeBytes": 4004713057,
-      "sha256": "92b4a94a6c7a23c0b9fd88c47823e41792879a7ee1f70c2349a255153ca25d54",
+      "path": "Data/patch-Z.MPQ",
+      "role": "required",
+      "sha256": "14069271263514ce55c53b97270edbd8dde047ca7ecceb33d5e58f9bafeabfec",
+      "sizeBytes": 1654007,
+      "source": {
+        "compressedSizeBytes": 1654007,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z.MPQ"
+      }
+    },
+    {
       "assembly": {
         "partSizeBytes": 1992294400,
         "parts": [
@@ -524,48 +454,154 @@
             "sha256": "932b41fc28565363688ed177884e43a0ce4a7e6bfc1bd2e295a108d0c6f63bdb",
             "sizeBytes": 1992294400,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-000",
               "compressedSizeBytes": 1992294400,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-000"
             }
           },
           {
             "sha256": "3586959844d347fd7cd0c3cb2260c1ea71a62bdd00a3c738e14a73d4023a6170",
             "sizeBytes": 1992294400,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-001",
               "compressedSizeBytes": 1992294400,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-001"
             }
           },
           {
             "sha256": "0e4b0a525c1f753303115762a94719eb9315f1aec79bed9136e3644177a3f1d7",
             "sizeBytes": 20124257,
             "source": {
-              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-002",
               "compressedSizeBytes": 20124257,
-              "compression": "none"
+              "compression": "none",
+              "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/patch.MPQ.part-002"
             }
           }
         ]
+      },
+      "kind": "clientPatch",
+      "path": "Data/patch.MPQ",
+      "role": "required",
+      "sha256": "92b4a94a6c7a23c0b9fd88c47823e41792879a7ee1f70c2349a255153ca25d54",
+      "sizeBytes": 4004713057
+    },
+    {
+      "kind": "clientBase",
+      "path": "DivxDecoder.dll",
+      "role": "required",
+      "sha256": "ed34d37b575c91a56704218eb9f6abbefda8b7de0e2ed44c96191abd0f9915a5",
+      "sizeBytes": 413696,
+      "source": {
+        "compressedSizeBytes": 413696,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/DivxDecoder.dll"
       }
     },
     {
+      "kind": "clientBase",
+      "path": "Repair.exe",
+      "role": "required",
+      "sha256": "cd95fc2ddc3d8f7b9c9d9c9d3fd0adb62cd16e56e65f47f331f6aa335b10b04b",
+      "sizeBytes": 975512,
+      "source": {
+        "compressedSizeBytes": 975512,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Repair.exe"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "Scan.dll",
+      "role": "required",
+      "sha256": "4fe56f1bf1bfa4171af7c53a731576bfc7818d36c6ea73658739f2f286d12da3",
+      "sizeBytes": 49924,
+      "source": {
+        "compressedSizeBytes": 49924,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Scan.dll"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "Wow.exe",
+      "role": "required",
+      "sha256": "aa63a5750d60ef16746c686b3d5e26876d98953eab08b1c026cd0faf78e88cb8",
+      "sizeBytes": 7704216,
+      "source": {
+        "compressedSizeBytes": 7704216,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/Wow.exe"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "WowError.exe",
+      "role": "required",
+      "sha256": "964eb9ed647c4614f3a3ecf977955750223ecbc8ff0a3bb4078e4dff779244f8",
+      "sizeBytes": 350360,
+      "source": {
+        "compressedSizeBytes": 350360,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/WowError.exe"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "dbghelp.dll",
+      "role": "required",
+      "sha256": "3f9ad6986eb1f3a09eb0b5cad888ba656f9148b3339399076f2541b3bc59213c",
+      "sizeBytes": 1039728,
+      "source": {
+        "compressedSizeBytes": 1039728,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/dbghelp.dll"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "ijl15.dll",
+      "role": "required",
+      "sha256": "334aa12f7dee453d1c6cb1b661a3bb3494d3e4cc9c2ff3f9002064c78404e43a",
+      "sizeBytes": 372736,
+      "source": {
+        "compressedSizeBytes": 372736,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/ijl15.dll"
+      }
+    },
+    {
+      "kind": "clientBase",
+      "path": "msvcr80.dll",
+      "role": "required",
+      "sha256": "9382aaed2db19cd75a70e38964f06c63f19f63c9dfb5a33b0c2d445bb41b6e46",
+      "sizeBytes": 632656,
+      "source": {
+        "compressedSizeBytes": 632656,
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/msvcr80.dll"
+      }
+    },
+    {
+      "kind": "clientBase",
       "path": "unicows.dll",
       "role": "required",
-      "kind": "clientBase",
-      "sizeBytes": 245408,
       "sha256": "22f23cc65698741184ec34f46e6f69717644e0b5aabf5d5bd015101f2d72e56e",
+      "sizeBytes": 245408,
       "source": {
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/unicows.dll",
         "compressedSizeBytes": 245408,
-        "compression": "none"
+        "compression": "none",
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/contenido-v1/unicows.dll"
       }
     }
   ],
+  "manifestVersion": 2,
+  "minLauncherVersion": "0.1.0",
+  "publishedAt": "2026-10-08T03:34:38Z",
+  "realm": "icetracks",
+  "schemaVersion": 1,
   "signature": {
     "keyId": "warcrafted-manifest-2026",
     "algorithm": "ed25519",
-    "value": "07c96f702ca172d092470d696315f115b3f280c8bbe6639081b852bd73667e1729197c989571cb0503668965fe4c7fdcbc7af94fc5090385af8b9c8be1045409"
+    "value": "e9ec38c77fec60c37b7c7f99c774bb1b70ca77ac07eede6eae320c1fdf248f1247b84be00a2a953feee486a7de1f86013a74b2c578e5d0cbdadd4bd94e12f70f"
   }
 }

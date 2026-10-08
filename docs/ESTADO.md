@@ -1,15 +1,34 @@
 # Estado del launcher
 
 Mantén este archivo al día con cada cambio relevante, no al final de la tarea. Es lo primero que
-lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-07**.
+lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-08**.
 
 ## Dónde estamos
 
 Investigación completa (`docs/investigacion/`, 5 informes) y decisión de stack tomada:
 **Tauri 2**, ver `docs/decisiones/0001-stack-tecnologico.md`. Esqueleto Tauri 2 generado y
-compilando. `update_engine::manifest` (commit `5756d42`, con soporte de `assembly`) y
-`update_engine::integrity` (commit `2b97668`) implementados y aceptados, con tests. `staging`
-sigue vacío.
+compilando.
+
+**Núcleo de actualización completo**: `update_engine::manifest` (parseo, firma Ed25519,
+anti-rollback, `assembly` para fragmentos, `kind: archive`), `update_engine::integrity`
+(verificación de hashes) y `update_engine::staging` (descarga con reintentos/reanudación HTTP
+Range, ensamblado de fragmentos, extracción segura de `.tar`, aplicación atómica) — los tres
+implementados, aceptados y con tests (23 tests en total, incluidos casos de ataque: path
+traversal y symlinks dentro de un `.tar`, hash incorrecto, servidor sin soporte de Range).
+
+**Probado de extremo a extremo contra GitHub real**: se montó un programa de prueba
+(`cargo run --example`, no forma parte del repo) que usa `manifest`+`integrity`+`staging` para
+descargar el cliente completo (~18,5 GB, 44 archivos) desde las releases reales de GitHub a una
+carpeta local, verificando hashes. Resultado: **44/44 archivos correctos**, estructura de
+carpetas reconstruida automáticamente y coincidente con la instalación real de Windows
+(ejecutables/DLLs en la raíz del cliente, `Data/` como subcarpeta con `esES/` dentro).
+
+**Manifest de contenido real publicado (`manifestVersion: 2`)**, generado con
+`docs/contenido/generar_manifest.py` a partir del árbol real del cliente: incluye el cliente base
+completo, los tres archivos fragmentados (`common.MPQ`, `lichking.MPQ`, `patch.MPQ`) con su
+`assembly.parts[]`, los parches del mod SoD (`patch-Z.MPQ`, `patch-esES-Z.MPQ`, en la release
+`patch`) y el addon obligatorio RuneEngraver (`kind: archive`, release `RuneEngraver`). Validado
+contra el parser Rust real antes de publicar.
 
 Se investigaron y descartaron como origen de descarga TeraBox, Hugging Face Hub (Datasets) y
 DigiStorage (sin API estable, sin garantía contractual, o atados a una cuenta personal). El
@@ -50,21 +69,17 @@ arquitectura):**
   jugador lo modifica o usa un cliente limpio sin configurar, `integrity` ya lo detecta como
   `Corrupt`/`Missing` igual que cualquier otro archivo, y `staging` lo repara igual que un parche.
   No hace falta lógica nueva.
-- **`patch-Z.MPQ`/`patch-esES-Z.MPQ` (contenido del mod SoD, se actualiza con frecuencia,
-  independiente del cliente base) van en una Release de GitHub separada** de la del cliente base
-  (`contenido-v1`). Esto no cambia el formato del manifest: sigue siendo un único manifest con
-  todos los archivos, pero cada entrada tiene su propio `source.url`, que puede apuntar a
-  cualquier release — no hace falta que todas las URLs vivan en la misma release. Pendiente:
-  hashear estos dos archivos (no estaban incluidos en los cálculos anteriores) y decidir el
-  nombre/tag de esa release de parches.
-- Subida de la release de contenido base (`contenido-v1`) hecha vía interfaz web de GitHub (sin
-  `gh` disponible en el entorno de desarrollo); limpieza de assets sobrantes ya realizada por el
-  usuario.
-- RuneEngraver (addon obligatorio) y el flujo completo de arranque (comprobar realmlist →
-  comprobar integridad de parches/addons → reparar si falta algo → arrancar) quedan descritos y
-  acordados, pendientes de traducir a entradas de manifest + implementación de `staging` y del
-  comando de lanzamiento del juego (todavía no existe ningún comando Tauri de UI para esto, solo
-  el `greet` de ejemplo del scaffold).
+- **`patch-Z.MPQ`/`patch-esES-Z.MPQ`** (contenido del mod SoD, se actualiza con frecuencia,
+  independiente del cliente base) viven en la release de GitHub `patch`, separada de la del
+  cliente base (`contenido-v1`) — ya incluidos en el manifest real, confirmado funcionando: GitHub
+  Releases no distingue mayúsculas/minúsculas en las URLs de descarga de assets, verificado
+  empíricamente.
+- **RuneEngraver** (addon obligatorio) vive en la release `RuneEngraver`, como un único `.tar`
+  (`kind: archive`) — ya incluido en el manifest real. Su estructura interna ya trae la carpeta
+  `RuneEngraver/` envolvente, así que se extrae directamente en `Data/Interface/AddOns/`.
+- La release de contenido base (`contenido-v1`) se subió vía interfaz web de GitHub (sin `gh`
+  disponible en el entorno de desarrollo); limpieza de assets sobrantes ya realizada por el
+  usuario (documentación, legales, `enUS/`, `patch-A.MPQ`).
 
 ## Decisiones tomadas
 
@@ -77,22 +92,26 @@ arquitectura):**
   manifest completo, proceso operativo de firma.
 - **0003 — Fragmentación de archivos grandes.** Un archivo del manifest puede declararse ensamblado
   a partir de fragmentos (`assembly.parts[]`, cada uno con su propio hash/origen) para sortear el
-  límite de 2 GiB de GitHub Releases sin cambiar de infraestructura de distribución. Pendiente de
-  validar: tamaño real del cliente, tamaño óptimo de fragmento.
+  límite de 2 GiB de GitHub Releases sin cambiar de infraestructura de distribución. **Validado**:
+  funciona de punta a punta contra GitHub real.
+- **0004 — Pipeline de generación del manifest y `kind: archive`.** Script Python
+  (`docs/contenido/generar_manifest.py`) que recalcula hashes y regenera el manifest
+  automáticamente; la firma queda como único paso manual deliberado (clave privada fuera del
+  repositorio). Nuevo `FileKind::Archive` para addons distribuidos como un único `.tar`,
+  extraído reutilizando la misma validación de rutas que el resto del manifest. **Validado**:
+  usado para generar el manifest real v2 y probado con RuneEngraver.
 
 ## Próximo paso
 
-1. Calcular hash SHA-256 de todos los archivos del cliente base ya subidos a `contenido-v1`
-   (pendiente: ejecutar el script de hashes sobre la lista limpia tras quitar documentación).
-2. Decidir tag/release para `patch-Z.MPQ`/`patch-esES-Z.MPQ` y hashearlos aparte.
-3. Construir el `manifest.json` real con todas las URLs (de `contenido-v1` y de la release de
-   parches) y hashes.
-4. Implementar `update_engine::staging` (descarga con reintentos/reanudación, ensamblado de
-   fragmentos según decisión 0003, aplicación atómica) sobre `manifest`/`integrity` ya
-   implementados.
-5. Diseñar e implementar el comando de lanzamiento del juego (comprobar realmlist, bloquear si el
-   cliente no es válido, arrancar `Wow.exe`) — todavía no existe ningún comando Tauri real, solo
-   el `greet` de ejemplo del scaffold.
+1. Diseñar e implementar los comandos Tauri de UI que orquesten el motor ya existente: verificar
+   estado del cliente, descargar/reparar vía `staging`, lanzar el juego. Todavía no existe ningún
+   comando real en `ui_commands.rs`, solo el `greet` de ejemplo del scaffold.
+2. Primera pantalla real del launcher (`src/`), sustituyendo el scaffold por defecto de Tauri.
+3. Validar en Windows (todo lo probado hasta ahora es en Linux): presencia de WebView2, que el
+   cliente arranque de verdad tras aplicar parches, rendimiento real de descarga.
+4. Considerar descarga en paralelo (hoy el motor descarga archivo por archivo, de uno en uno —
+   funciona pero es más lento de lo que podría ser; no es un defecto del diseño, es una decisión
+   de alcance pendiente de revisar).
 
 ## No hacer
 
