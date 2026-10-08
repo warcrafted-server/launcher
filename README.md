@@ -77,16 +77,25 @@ cada investigación, con fuentes, queda reflejado en el historial de decisiones 
 
 ## Desarrollo
 
-### Requisitos
+### Preparar el entorno (automático)
 
-- [Rust](https://www.rust-lang.org/) (vía `rustup`) y las dependencias de sistema de Tauri 2 para
-  tu plataforma (en Linux: `webkit2gtk`, `libsoup-3.0`, `javascriptcoregtk`,
-  `libayatana-appindicator3`, `librsvg2`).
-- [Node.js](https://nodejs.org/) y `npm`, para el frontend.
-- En Windows: *Build Tools for Visual Studio* con la carga «Desarrollo para el escritorio con
-  C++» (necesaria para que Rust enlace) y WebView2 (incluido en Windows 10/11 actualizados).
-- Ejecutar siempre `npm install` antes del primer `npm run tauri dev` o `npm run build`; sin él
-  fallan con «`tauri` no se reconoce» o «`tsc` no se reconoce».
+Un solo comando instala lo que falte (Node.js, Rust, compilador C++, WebView2 o librerías de
+sistema) y ejecuta `npm install`:
+
+```powershell
+# Windows (PowerShell, desde la raíz del repo; usa winget)
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+```
+
+```bash
+# Debian/Ubuntu (pide sudo para apt)
+bash scripts/setup.sh
+```
+
+Después, abre una terminal nueva para que el PATH incluya `cargo` y `node`. Si prefieres instalar
+a mano: Node.js y `npm`; Rust con `rustup`; en Windows, *Build Tools for Visual Studio* con
+«Desarrollo para el escritorio con C++» y WebView2; en Linux, `webkit2gtk-4.1`, `libsoup-3.0`,
+`libayatana-appindicator3` y `librsvg2`.
 
 ### Comandos
 

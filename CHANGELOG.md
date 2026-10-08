@@ -6,6 +6,11 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+### Añadido
+
+- `scripts/setup.ps1` y `scripts/setup.sh`: instalan automáticamente las dependencias de
+  desarrollo (Node.js, Rust, compilador C++, WebView2 o librerías de Linux) y ejecutan `npm install`.
+
 ### Cambiado
 
 - README: requisitos de Windows y paso obligatorio `npm install`.
