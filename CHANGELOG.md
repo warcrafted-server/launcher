@@ -8,6 +8,8 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Añadido
 
+- Selector de la carpeta del cliente; la ruta se guarda en los ajustes del launcher.
+- Botón «Borrar caché», con confirmación.
 - Publicación automática de parches y addon obligatorio (`scripts/publicar-parches.sh`, ver
   `docs/contenido/PUBLICAR-PARCHES.md`): assets versionados, verificación, firma del manifest y
   retención de las 5 últimas versiones.
@@ -16,8 +18,14 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ### Cambiado
 
+- Los comandos ya no reciben rutas ni el ejecutable desde la interfaz: el backend usa la carpeta
+  guardada y lanza siempre `Wow.exe`.
 - `TODO.md` con las tareas pendientes priorizadas.
 - README: requisitos de Windows y paso obligatorio `npm install`.
+
+### Eliminado
+
+- Comando `greet` de ejemplo del scaffold de Tauri.
 
 ### Corregido
 

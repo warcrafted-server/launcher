@@ -191,8 +191,37 @@ h2 {
 }
 
 .client-location {
+  min-width: 0;
+  overflow: hidden;
   color: #a2afbc;
   font-size: 12px;
+  text-overflow: ellipsis;
+  user-select: text;
+  white-space: nowrap;
+}
+
+.client-location-row {
+  min-width: 0;
+  max-width: 62%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.client-location-row .client-location {
+  flex: 1 1 auto;
+}
+
+.client-location-row .button {
+  flex: 0 0 auto;
+}
+
+.client-folder-help {
+  margin: 13px 0 0;
+  color: #aab7c4;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .action-row {
@@ -492,23 +521,35 @@ progress::-moz-progress-bar {
   }
 
   .section-heading {
+    width: 100%;
     align-items: flex-start;
     flex-direction: column;
     gap: 7px;
   }
 
+  .client-location-row {
+    width: 100%;
+    max-width: none;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .client-location-row .client-location {
+    flex: 1 1 180px;
+  }
+
   .action-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 
   .button {
+    min-width: 0;
     padding: 0 10px;
     font-size: 12px;
   }
 
   .button-play {
-    grid-column: 1 / -1;
     width: 100%;
     margin-left: 0;
   }

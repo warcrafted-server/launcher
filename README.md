@@ -110,15 +110,16 @@ cd src-tauri && cargo test   # tests del backend Rust
 
 Con `npm run tauri dev` se abre la ventana del launcher (hace falta un entorno gráfico):
 
-1. **Comprobar estado**: descarga el manifest firmado, verifica su firma y compara cada archivo
-   del cliente con su hash. Lista los archivos correctos, ausentes o modificados.
-2. **Actualizar**: descarga y repara solo lo que falta o no coincide, con barra de progreso.
-3. **Jugar**: se habilita tras la primera comprobación y lanza `Wow.exe` únicamente si todos los
+1. **Elegir carpeta…**: indica dónde está (o dónde se instalará) el cliente de WoW. Se guarda en
+   los ajustes del launcher y se recuerda en la próxima ejecución. Si la carpeta está vacía, la
+   primera actualización descarga el cliente completo (unos 18,5 GB).
+2. **Comprobar estado**: descarga el manifest firmado, verifica su firma y compara cada archivo
+   del cliente con su hash (incluido `Wow.exe`, lo que garantiza el build 12340). Lista los
+   archivos correctos, ausentes o modificados.
+3. **Actualizar**: descarga y repara solo lo que falta o no coincide, con barra de progreso.
+4. **Borrar caché**: elimina la carpeta `Cache` del cliente (con el juego cerrado).
+5. **Jugar**: se habilita tras la primera comprobación y lanza `Wow.exe` únicamente si todos los
    archivos obligatorios son válidos.
-
-Por ahora el cliente se busca en la ruta fija `./warcrafted-client` (relativa a `src-tauri/` en
-modo desarrollo). La primera actualización completa descarga unos 18,5 GB: conviene apuntar a un
-disco con espacio. Un selector de carpeta llegará en una versión posterior.
 
 ## Versionado y cambios
 

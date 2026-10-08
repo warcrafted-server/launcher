@@ -40,8 +40,17 @@
             <p class="eyebrow">PREPARACIÓN DEL JUEGO</p>
             <h2 id="client-title">Estado del cliente</h2>
           </div>
-          <span class="client-location">Ruta temporal: ./warcrafted-client</span>
+          <div class="client-location-row">
+            <span class="client-location" id="client-location">Ninguna carpeta elegida</span>
+            <button class="button button-secondary" id="choose-folder-button" type="button">
+              Elegir carpeta…
+            </button>
+          </div>
         </div>
+
+        <p class="client-folder-help" id="client-folder-help">
+          Elige la carpeta del cliente. Si es nueva, el launcher descargará el cliente completo (unos 18,5 GB).
+        </p>
 
         <div class="action-row">
           <button class="button button-secondary" id="check-button" type="button">
@@ -49,6 +58,9 @@
           </button>
           <button class="button button-primary" id="update-button" type="button">
             Actualizar
+          </button>
+          <button class="button button-secondary" id="clear-cache-button" type="button">
+            Borrar caché
           </button>
           <button class="button button-play" id="play-button" type="button" disabled>
             <span class="play-icon" aria-hidden="true">▶</span>

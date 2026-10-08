@@ -22,19 +22,18 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
 
-- [ ] **Ruta del cliente configurable y persistente**: selector de carpeta, recordar la elección,
-      detectar un cliente ya instalado (hoy la ruta es fija: `./warcrafted-client`)
-- [ ] Comprobar que el cliente es el build 12340 antes de nada
+- [x] Ruta del cliente configurable y persistente (selector de carpeta, guardada en ajustes)
+- [x] Build 12340 garantizado por la integridad: el hash de `Wow.exe` está en el manifest
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
 - [ ] Progreso real: bytes, velocidad y tiempo restante (hoy solo "archivo N de M")
 - [ ] Cancelar y reanudar una actualización desde la UI; mensajes claros ante fallos de red
 - [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero
       al volver a abrir el launcher) y limpiar carpetas temporales huérfanas
-- [ ] Opción de borrar caché (`Cache/WDB`)
+- [x] Opción de borrar caché
 - [ ] Logging a archivo, útil para soporte
 - [ ] Probar el recorrido completo en Windows: descarga, reparación, `Wow.exe` arrancando con los
       parches y addon aplicados
-- [ ] Quitar el comando `greet` sobrante del scaffold
+- [x] Quitar el comando `greet` sobrante del scaffold
 
 ## Prioridad 2 — producto distribuible
 

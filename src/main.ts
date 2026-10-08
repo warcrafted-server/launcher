@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { ask, open } from "@tauri-apps/plugin-dialog";
 
 type ClientFileState = "ok" | "missing" | "corrupt" | "error";
 type FileRole = "required" | "optional";
@@ -20,13 +21,17 @@ interface UpdateProgressPayload {
   message: string | null;
 }
 
-// Temporal hasta incorporar el selector de carpeta.
-const INSTALL_DIR = "./warcrafted-client";
-const EXECUTABLE_NAME = "Wow.exe";
+interface LauncherSettings {
+  clientDir: string | null;
+}
 
 const checkButton = requiredElement<HTMLButtonElement>("#check-button");
 const updateButton = requiredElement<HTMLButtonElement>("#update-button");
 const playButton = requiredElement<HTMLButtonElement>("#play-button");
+const clearCacheButton = requiredElement<HTMLButtonElement>("#clear-cache-button");
+const chooseFolderButton = requiredElement<HTMLButtonElement>("#choose-folder-button");
+const clientLocation = requiredElement<HTMLSpanElement>("#client-location");
+const clientFolderHelp = requiredElement<HTMLParagraphElement>("#client-folder-help");
 const operationMessage = requiredElement<HTMLDivElement>("#operation-message");
 const progressSection = requiredElement<HTMLElement>("#progress-section");
 const progressTitle = requiredElement<HTMLHeadingElement>("#progress-title");
@@ -37,14 +42,21 @@ const fileList = requiredElement<HTMLUListElement>("#file-list");
 const fileCount = requiredElement<HTMLSpanElement>("#file-count");
 
 let clientFiles: ClientFileStatus[] = [];
+let clientDir: string | null = null;
 let hasCheckedClient = false;
 let isChecking = false;
 let isUpdating = false;
 let isLaunching = false;
+let isClearingCache = false;
+let isLoadingSettings = true;
 
+chooseFolderButton.addEventListener("click", () => void chooseClientFolder());
 checkButton.addEventListener("click", () => void checkClient());
 updateButton.addEventListener("click", () => void updateClient());
 playButton.addEventListener("click", () => void launchGame());
+clearCacheButton.addEventListener("click", () => void clearCache());
+
+void loadSettings();
 
 function requiredElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);
@@ -55,10 +67,59 @@ function requiredElement<T extends HTMLElement>(selector: string): T {
 }
 
 function refreshButtons(): void {
-  const busy = isChecking || isUpdating || isLaunching;
-  checkButton.disabled = busy;
-  updateButton.disabled = busy;
-  playButton.disabled = busy || !hasCheckedClient;
+  const busy = isLoadingSettings || isChecking || isUpdating || isLaunching || isClearingCache;
+  const hasClientDirectory = clientDir !== null;
+  chooseFolderButton.disabled = busy;
+  checkButton.disabled = busy || !hasClientDirectory;
+  updateButton.disabled = busy || !hasClientDirectory;
+  clearCacheButton.disabled = busy || !hasClientDirectory;
+  playButton.disabled = busy || !hasClientDirectory || !hasCheckedClient;
+}
+
+async function loadSettings(): Promise<void> {
+  try {
+    const settings = await invoke<LauncherSettings>("get_settings");
+    clientDir = settings.clientDir;
+    renderClientDirectory();
+  } catch (error: unknown) {
+    showMessage(`No se pudieron cargar los ajustes: ${errorMessage(error)}`, "error");
+  } finally {
+    isLoadingSettings = false;
+    refreshButtons();
+  }
+}
+
+async function chooseClientFolder(): Promise<void> {
+  if (isLoadingSettings || isChecking || isUpdating || isLaunching || isClearingCache) return;
+
+  try {
+    const selectedPath = await open({
+      directory: true,
+      multiple: false,
+      title: "Elige la carpeta del cliente de WoW",
+    });
+    if (selectedPath === null) return;
+
+    const savedPath = await invoke<string>("set_client_dir", { path: selectedPath });
+    clientDir = savedPath;
+    hasCheckedClient = false;
+    clientFiles = [];
+    renderClientDirectory();
+    fileList.replaceChildren(createEmptyState("Comprueba el estado para ver los archivos del cliente."));
+    fileCount.textContent = "Aún no comprobados";
+    progressSection.hidden = true;
+    showMessage("La carpeta del cliente se ha guardado.", "success");
+    refreshButtons();
+  } catch (error: unknown) {
+    showMessage(`No se pudo elegir la carpeta del cliente: ${errorMessage(error)}`, "error");
+  }
+}
+
+function renderClientDirectory(): void {
+  const path = clientDir ?? "Ninguna carpeta elegida";
+  clientLocation.textContent = path;
+  clientLocation.title = clientDir ?? "";
+  clientFolderHelp.hidden = clientDir !== null;
 }
 
 function showMessage(message: string, kind: "success" | "error" | "info"): void {
@@ -80,15 +141,13 @@ function errorMessage(error: unknown): string {
 }
 
 async function checkClient(): Promise<void> {
-  if (isChecking || isUpdating || isLaunching) return;
+  if (!clientDir || isChecking || isUpdating || isLaunching || isClearingCache) return;
   isChecking = true;
   refreshButtons();
   clearMessage();
 
   try {
-    clientFiles = await invoke<ClientFileStatus[]>("check_client_status", {
-      installDir: INSTALL_DIR,
-    });
+    clientFiles = await invoke<ClientFileStatus[]>("check_client_status");
     hasCheckedClient = true;
     renderFiles();
     const attentionCount = clientFiles.filter((file) => file.status !== "ok").length;
@@ -107,7 +166,7 @@ async function checkClient(): Promise<void> {
 }
 
 async function updateClient(): Promise<void> {
-  if (isChecking || isUpdating || isLaunching) return;
+  if (!clientDir || isChecking || isUpdating || isLaunching || isClearingCache) return;
   isUpdating = true;
   refreshButtons();
   clearMessage();
@@ -135,7 +194,7 @@ async function updateClient(): Promise<void> {
       updateDisplayedFile(payload);
     });
 
-    await invoke<void>("update_client", { installDir: INSTALL_DIR });
+    await invoke<void>("update_client");
     progressTitle.textContent = "Actualización completada";
     progressCount.textContent = "Completado";
     progressDetail.textContent = "Los archivos obligatorios están preparados.";
@@ -156,21 +215,41 @@ async function updateClient(): Promise<void> {
 }
 
 async function launchGame(): Promise<void> {
-  if (!hasCheckedClient || isChecking || isUpdating || isLaunching) return;
+  if (!clientDir || !hasCheckedClient || isChecking || isUpdating || isLaunching || isClearingCache) return;
   isLaunching = true;
   refreshButtons();
   clearMessage();
 
   try {
-    await invoke<void>("launch_game", {
-      installDir: INSTALL_DIR,
-      executableName: EXECUTABLE_NAME,
-    });
+    await invoke<void>("launch_game");
     showMessage("El juego se ha iniciado.", "success");
   } catch (error: unknown) {
     showMessage(`No se pudo iniciar el juego: ${errorMessage(error)}`, "error");
   } finally {
     isLaunching = false;
+    refreshButtons();
+  }
+}
+
+async function clearCache(): Promise<void> {
+  if (!clientDir || isChecking || isUpdating || isLaunching || isClearingCache) return;
+
+  try {
+    const confirmed = await ask(
+      "Se borrará la carpeta Cache del cliente. Cierra el juego antes de continuar. ¿Continuar?",
+      { title: "Borrar caché", kind: "warning" },
+    );
+    if (!confirmed) return;
+
+    isClearingCache = true;
+    refreshButtons();
+    clearMessage();
+    await invoke<void>("clear_cache");
+    showMessage("La caché del cliente se ha borrado.", "success");
+  } catch (error: unknown) {
+    showMessage(`No se pudo borrar la caché: ${errorMessage(error)}`, "error");
+  } finally {
+    isClearingCache = false;
     refreshButtons();
   }
 }
