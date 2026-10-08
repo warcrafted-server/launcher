@@ -3,7 +3,7 @@ use std::{
     fs,
     path::{Component, Path, PathBuf},
     process::Command,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::{Duration, Instant},
 };
 
@@ -33,6 +33,7 @@ const GAME_EXECUTABLE: &str = "Wow.exe";
 
 static NEXT_STAGING_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 static NEXT_BACKUP_FILE: AtomicU64 = AtomicU64::new(0);
+static CANCEL_OPERATION: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -80,6 +81,13 @@ pub(crate) struct SettingsResponse {
     client_dir: Option<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ClientStatusResponse {
+    files: Vec<ClientFileStatus>,
+    installed: bool,
+}
+
 struct ClientSnapshot {
     manifest: Manifest,
     report: Vec<FileVerification>,
@@ -115,6 +123,49 @@ pub(crate) fn set_client_dir(app: AppHandle, path: String) -> Result<String, Str
     Ok(display_path(&client_dir))
 }
 
+#[tauri::command]
+pub(crate) fn create_install_dir(app: AppHandle, parent: String) -> Result<String, String> {
+    let client_dir = create_install_dir_for_parent(Path::new(&parent))?;
+    let config_dir = settings_directory(&app)?;
+    let mut launcher_settings = settings::load_settings(&config_dir)?;
+    launcher_settings.client_dir = Some(client_dir.clone());
+    settings::save_settings(&config_dir, &launcher_settings)?;
+    Ok(display_path(&client_dir))
+}
+
+fn create_install_dir_for_parent(parent: &Path) -> Result<PathBuf, String> {
+    let validated_parent = settings::validate_client_dir(parent)?;
+    let parent_metadata = fs::symlink_metadata(&validated_parent)
+        .map_err(|error| format!("La ubicación elegida debe ser una carpeta existente: {error}"))?;
+    if parent_metadata.file_type().is_symlink() || !parent_metadata.is_dir() {
+        return Err("La ubicación elegida debe ser una carpeta existente.".into());
+    }
+
+    let install_dir = validated_parent.join("WarCrafted WotLK");
+    match fs::create_dir(&install_dir) {
+        Ok(()) => Ok(install_dir),
+        Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+            let metadata = fs::symlink_metadata(&install_dir).map_err(|error| {
+                format!("No se pudo validar la carpeta WarCrafted WotLK: {error}")
+            })?;
+            if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                return Err(
+                    "La ruta «WarCrafted WotLK» existe, pero no es una carpeta segura.".into(),
+                );
+            }
+            let mut entries = fs::read_dir(&install_dir)
+                .map_err(|error| format!("No se pudo leer la carpeta WarCrafted WotLK: {error}"))?;
+            if entries.next().is_some() {
+                return Err("Ya existe una carpeta «WarCrafted WotLK» con contenido en esa ubicación; elígela con «Elegir carpeta…» o usa otra ubicación.".into());
+            }
+            Ok(install_dir)
+        }
+        Err(error) => Err(format!(
+            "No se pudo crear la carpeta WarCrafted WotLK: {error}"
+        )),
+    }
+}
+
 // En Windows canonicalize devuelve rutas «\\?\C:\...»; para mostrarlas se quita el prefijo
 // salvo en rutas UNC, donde es necesario.
 fn display_path(path: &Path) -> String {
@@ -132,20 +183,28 @@ pub(crate) fn clear_cache(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub(crate) async fn check_client_status(app: AppHandle) -> Result<Vec<ClientFileStatus>, String> {
+pub(crate) async fn check_client_status(app: AppHandle) -> Result<ClientStatusResponse, String> {
+    CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let snapshot = load_client_snapshot(&app, &client_dir).await?;
-    Ok(snapshot
+    let files = snapshot
         .manifest
         .files
         .iter()
         .zip(&snapshot.report)
         .map(|(file, verification)| to_client_file_status(file.role, verification))
-        .collect())
+        .collect();
+    let installed =
+        fs::metadata(client_dir.join(GAME_EXECUTABLE)).is_ok_and(|metadata| metadata.is_file());
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
+    Ok(ClientStatusResponse { files, installed })
 }
 
 #[tauri::command]
 pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
+    CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let snapshot = load_client_snapshot(&app, &client_dir).await?;
     let pending: Vec<_> = snapshot
@@ -172,6 +231,9 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     let mut failures = Vec::new();
 
     for (index, file) in pending.iter().enumerate() {
+        if CANCEL_OPERATION.load(Ordering::Relaxed) {
+            return Err("Operación cancelada.".into());
+        }
         let result =
             install_manifest_file(&client, file, &install_root, &staging_directory.0).await;
         let (status, message) = match result {
@@ -194,6 +256,10 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         );
     }
 
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
+
     if failures.is_empty() {
         Ok(())
     } else {
@@ -207,8 +273,12 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
+    CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let snapshot = load_client_snapshot(&app, &client_dir).await?;
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
     match decide_launch(&snapshot.manifest, &snapshot.report, GAME_EXECUTABLE) {
         LaunchDecision::Blocked(paths) => {
             return Err(format!(
@@ -232,11 +302,19 @@ pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
         return Err("el ejecutable no es un archivo normal del cliente".into());
     }
 
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
     Command::new(&executable_path)
         .current_dir(&install_root)
         .spawn()
         .map(|_| ())
         .map_err(|error| format!("no se pudo iniciar el juego: {error}"))
+}
+
+#[tauri::command]
+pub(crate) fn cancel_operation() {
+    CANCEL_OPERATION.store(true, Ordering::Relaxed);
 }
 
 fn settings_directory(app: &AppHandle) -> Result<PathBuf, String> {
@@ -269,6 +347,7 @@ async fn load_client_snapshot(
         integrity::verify_manifest_files_with_progress(
             &manifest_for_verification,
             &install_root,
+            &CANCEL_OPERATION,
             |progress| {
                 let first_for_file = progress.index != last_index;
                 let last_for_file = progress.file_bytes_done >= progress.file_bytes_total;
@@ -780,6 +859,65 @@ mod tests {
             r"\\?\UNC\server\share"
         );
         assert_eq!(display_path(Path::new("/home/wow")), "/home/wow");
+    }
+
+    #[test]
+    fn create_install_dir_creates_the_named_child() {
+        let directory = TestDirectory::new();
+
+        let install_dir = create_install_dir_for_parent(&directory.0).expect("crear instalación");
+
+        assert_eq!(install_dir, directory.0.join("WarCrafted WotLK"));
+        assert!(install_dir.is_dir());
+    }
+
+    #[test]
+    fn create_install_dir_reuses_an_existing_empty_child() {
+        let directory = TestDirectory::new();
+        let install_dir = directory.0.join("WarCrafted WotLK");
+        fs::create_dir(&install_dir).expect("crear carpeta vacía");
+
+        assert_eq!(
+            create_install_dir_for_parent(&directory.0).expect("reutilizar carpeta vacía"),
+            install_dir
+        );
+    }
+
+    #[test]
+    fn create_install_dir_rejects_an_existing_nonempty_child() {
+        let directory = TestDirectory::new();
+        let install_dir = directory.0.join("WarCrafted WotLK");
+        fs::create_dir(&install_dir).expect("crear carpeta");
+        fs::write(install_dir.join("existing.file"), b"data").expect("crear contenido");
+
+        let error = create_install_dir_for_parent(&directory.0).unwrap_err();
+
+        assert_eq!(error, "Ya existe una carpeta «WarCrafted WotLK» con contenido en esa ubicación; elígela con «Elegir carpeta…» o usa otra ubicación.");
+    }
+
+    #[test]
+    fn create_install_dir_rejects_relative_or_missing_parents() {
+        assert!(create_install_dir_for_parent(Path::new("relative/parent")).is_err());
+
+        let directory = TestDirectory::new();
+        assert!(create_install_dir_for_parent(&directory.0.join("missing-parent")).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn create_install_dir_rejects_a_file_or_symbolic_link_at_the_child_path() {
+        use std::os::unix::fs::symlink;
+
+        let directory = TestDirectory::new();
+        let child = directory.0.join("WarCrafted WotLK");
+        fs::write(&child, b"file").expect("crear archivo");
+        assert!(create_install_dir_for_parent(&directory.0).is_err());
+        fs::remove_file(&child).expect("borrar archivo");
+
+        let target = directory.0.join("target");
+        fs::create_dir(&target).expect("crear destino");
+        symlink(&target, &child).expect("crear enlace simbólico");
+        assert!(create_install_dir_for_parent(&directory.0).is_err());
     }
 
     #[test]

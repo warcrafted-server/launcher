@@ -4,6 +4,7 @@ use std::{
     fs::{self, File},
     io::{self, Read},
     path::Path,
+    sync::atomic::{AtomicBool, Ordering},
 };
 
 use sha2::{Digest, Sha256};
@@ -39,20 +40,28 @@ pub enum FileStatus {
 }
 
 #[derive(Debug)]
-pub struct IntegrityError {
-    pub path: String,
-    source: ManifestError,
+pub enum IntegrityError {
+    Cancelled,
+    InvalidPath { path: String, source: ManifestError },
 }
 
 impl fmt::Display for IntegrityError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "ruta inválida {}: {}", self.path, self.source)
+        match self {
+            Self::Cancelled => formatter.write_str("Operación cancelada."),
+            Self::InvalidPath { path, source } => {
+                write!(formatter, "ruta inválida {path}: {source}")
+            }
+        }
     }
 }
 
 impl Error for IntegrityError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        Some(&self.source)
+        match self {
+            Self::Cancelled => None,
+            Self::InvalidPath { source, .. } => Some(source),
+        }
     }
 }
 
@@ -61,13 +70,15 @@ pub fn verify_manifest_files(
     manifest: &Manifest,
     install_root: &Path,
 ) -> Result<Vec<FileVerification>, IntegrityError> {
-    verify_manifest_files_with_progress(manifest, install_root, |_| {})
+    let cancel = AtomicBool::new(false);
+    verify_manifest_files_with_progress(manifest, install_root, &cancel, |_| {})
 }
 
 /// Verifica los archivos del manifest e informa del avance por archivo y bytes leídos.
 pub fn verify_manifest_files_with_progress(
     manifest: &Manifest,
     install_root: &Path,
+    cancel: &AtomicBool,
     mut on_progress: impl FnMut(&VerifyProgress),
 ) -> Result<Vec<FileVerification>, IntegrityError> {
     let total = manifest.files.len();
@@ -79,6 +90,9 @@ pub fn verify_manifest_files_with_progress(
     let mut report = Vec::with_capacity(total);
 
     for (file_index, file) in manifest.files.iter().enumerate() {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(IntegrityError::Cancelled);
+        }
         let index = file_index + 1;
         let bytes_done_before_file = bytes_done;
         let mut file_bytes_done = 0;
@@ -93,13 +107,18 @@ pub fn verify_manifest_files_with_progress(
             bytes_total,
         );
 
-        let file_path =
-            resolve_manifest_path(install_root, &file.path).map_err(|source| IntegrityError {
+        let file_path = resolve_manifest_path(install_root, &file.path).map_err(|source| {
+            IntegrityError::InvalidPath {
                 path: file.path.clone(),
                 source,
-            })?;
-        let status =
-            verify_file_with_progress(&file_path, &file.sha256, file.size_bytes, |bytes_read| {
+            }
+        })?;
+        let status = verify_file_with_progress(
+            &file_path,
+            &file.sha256,
+            file.size_bytes,
+            cancel,
+            |bytes_read| {
                 file_bytes_done = bytes_read;
                 report_progress(
                     &mut on_progress,
@@ -111,7 +130,8 @@ pub fn verify_manifest_files_with_progress(
                     bytes_done_before_file,
                     bytes_total,
                 );
-            });
+            },
+        )?;
 
         // Los archivos ausentes, descartados por tamaño o ilegibles también completan
         // su parte del trabajo del manifest para que el progreso alcance el total.
@@ -161,34 +181,35 @@ fn verify_file_with_progress(
     path: &Path,
     expected: &str,
     expected_size: u64,
+    cancel: &AtomicBool,
     mut on_progress: impl FnMut(u64),
-) -> FileStatus {
+) -> Result<FileStatus, IntegrityError> {
     let metadata = match fs::metadata(path) {
         Ok(metadata) => metadata,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return FileStatus::Missing,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(FileStatus::Missing),
         Err(error) => {
-            return FileStatus::Unreadable {
+            return Ok(FileStatus::Unreadable {
                 message: error.to_string(),
-            }
+            })
         }
     };
     if metadata.len() != expected_size {
-        return FileStatus::Corrupt {
+        return Ok(FileStatus::Corrupt {
             expected: expected.to_owned(),
             actual: format!(
                 "tamaño {} bytes, se esperaban {expected_size}",
                 metadata.len()
             ),
-        };
+        });
     }
 
     let mut file = match File::open(path) {
         Ok(file) => file,
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return FileStatus::Missing,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(FileStatus::Missing),
         Err(error) => {
-            return FileStatus::Unreadable {
+            return Ok(FileStatus::Unreadable {
                 message: error.to_string(),
-            }
+            })
         }
     };
 
@@ -197,6 +218,9 @@ fn verify_file_with_progress(
     let mut file_bytes_done = 0u64;
     let mut next_progress = PROGRESS_INTERVAL_BYTES;
     loop {
+        if cancel.load(Ordering::Relaxed) {
+            return Err(IntegrityError::Cancelled);
+        }
         match file.read(&mut buffer) {
             Ok(0) => break,
             Ok(bytes_read) => {
@@ -209,21 +233,21 @@ fn verify_file_with_progress(
             }
             Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,
             Err(error) => {
-                return FileStatus::Unreadable {
+                return Ok(FileStatus::Unreadable {
                     message: error.to_string(),
-                }
+                })
             }
         }
     }
 
     let actual = encode_hex(hasher.finalize().iter().copied());
     if actual.eq_ignore_ascii_case(expected) {
-        FileStatus::Valid
+        Ok(FileStatus::Valid)
     } else {
-        FileStatus::Corrupt {
+        Ok(FileStatus::Corrupt {
             expected: expected.to_owned(),
             actual,
-        }
+        })
     }
 }
 
@@ -242,7 +266,7 @@ mod tests {
     use std::{
         fs,
         path::PathBuf,
-        sync::atomic::{AtomicU64, Ordering},
+        sync::atomic::{AtomicBool, AtomicU64, Ordering},
     };
 
     use super::*;
@@ -402,11 +426,13 @@ mod tests {
             manifest_file("Data/missing.MPQ", sha256(b"absent"), 12),
         ]);
         let mut progress = Vec::new();
+        let cancel = AtomicBool::new(false);
 
-        let report = verify_manifest_files_with_progress(&manifest, &temp_dir.0, |value| {
-            progress.push(value.clone());
-        })
-        .unwrap();
+        let report =
+            verify_manifest_files_with_progress(&manifest, &temp_dir.0, &cancel, |value| {
+                progress.push(value.clone())
+            })
+            .unwrap();
 
         assert_eq!(report[0].status, FileStatus::Valid);
         assert_eq!(report[1].status, FileStatus::Missing);
@@ -453,5 +479,28 @@ mod tests {
         let report = verify_manifest_files(&manifest, &temp_dir.0).unwrap();
 
         assert_eq!(report[0].status, FileStatus::Valid);
+    }
+
+    #[test]
+    fn cancellation_before_verification_returns_without_progress() {
+        let temp_dir = TempDir::new();
+        let contents = b"client file contents";
+        temp_dir.write("Data/file.MPQ", contents);
+        let manifest = manifest(vec![manifest_file(
+            "Data/file.MPQ",
+            sha256(contents),
+            contents.len() as u64,
+        )]);
+        let cancel = AtomicBool::new(true);
+        let mut progress = Vec::new();
+
+        let error = verify_manifest_files_with_progress(&manifest, &temp_dir.0, &cancel, |value| {
+            progress.push(value.clone())
+        })
+        .unwrap_err();
+
+        assert!(matches!(error, IntegrityError::Cancelled));
+        assert_eq!(error.to_string(), "Operación cancelada.");
+        assert!(progress.is_empty());
     }
 }
