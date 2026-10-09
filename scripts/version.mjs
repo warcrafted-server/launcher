@@ -20,7 +20,7 @@ const targets = [
   },
   {
     file: "src-tauri/Cargo.lock",
-    pattern: /(name = "warcrafted-launcher"\nversion = ")([^"]+)(")/,
+    pattern: /(name = "warcrafted-launcher"\r?\nversion = ")([^"]+)(")/,
   },
 ];
 

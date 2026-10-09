@@ -1,6 +1,6 @@
 [package]
 name = "warcrafted-launcher"
-version = "0.10.3"
+version = "0.10.4"
 description = "WarCrafted Launcher"
 authors = ["WarCrafted"]
 license-file = "../LICENSE"

@@ -6,6 +6,16 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.10.4] - 2026-10-09
+
+Corrección del workflow de release (parche).
+
+### Corregido
+
+- `scripts/version.mjs` no encontraba la versión en `Cargo.lock` con saltos de línea CRLF (checkout
+  en Windows), lo que hacía fallar la comprobación del tag en el workflow de release. El tag
+  `v0.10.3` quedó sin release por este motivo.
+
 ## [0.10.3] - 2026-10-09
 
 Créditos y documentación (parche).
