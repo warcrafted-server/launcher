@@ -6,6 +6,14 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.10.2] - 2026-10-09
+
+Limpieza interna (parche).
+
+### Corregido
+
+- Advertencia de compilación por código no usado (`DownloadProgress::bytes_done`, solo se usa en tests).
+
 ## [0.10.1] - 2026-10-09
 
 Cambio de icono (parche: solo recursos gráficos).

@@ -49,6 +49,7 @@ impl DownloadProgress {
         self.samples.push_back((now, self.bytes_done));
     }
 
+    #[cfg(test)]
     pub fn bytes_done(&self) -> u64 {
         self.bytes_done
     }
