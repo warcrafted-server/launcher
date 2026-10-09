@@ -1,6 +1,7 @@
 mod client_detect;
 mod disk_space;
 mod download_progress;
+mod optional_addons;
 mod settings;
 mod ui_commands;
 pub mod update_engine;
@@ -25,7 +26,11 @@ pub fn run() {
             ui_commands::update_client,
             ui_commands::launch_game,
             ui_commands::get_game_running,
-            ui_commands::get_disk_space
+            ui_commands::get_disk_space,
+            ui_commands::list_optional_addons,
+            ui_commands::install_optional_addon,
+            ui_commands::update_optional_addon,
+            ui_commands::uninstall_optional_addon
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

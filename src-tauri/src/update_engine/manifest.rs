@@ -152,11 +152,15 @@ impl fmt::Display for ManifestError {
 
 impl Error for ManifestError {}
 
-/// Verifica la firma antes de convertir el resto de los campos al modelo tipado.
-pub fn parse_manifest(
+/// Verifica la firma Ed25519 de un documento firmado y devuelve su JSON sin `signature`.
+///
+/// La firma se calcula sobre el JSON canónico del documento sin el campo `signature`, igual que
+/// genera `sign_and_verify` en `docs/contenido/generar_manifest.py`. Es reutilizable por cualquier
+/// documento firmado con el mismo mecanismo (por ejemplo el catálogo de addons opcionales).
+pub fn verify_signed_document(
     document: &[u8],
     trusted_keys: &BTreeMap<String, VerifyingKey>,
-) -> Result<Manifest, ManifestError> {
+) -> Result<Value, ManifestError> {
     let mut value: Value = serde_json::from_slice(document)
         .map_err(|error| ManifestError::InvalidJson(error.to_string()))?;
     let object = value
@@ -184,6 +188,16 @@ pub fn parse_manifest(
         .map_err(|error| ManifestError::InvalidSignature(error.to_string()))?;
     key.verify(&canonical, &signature)
         .map_err(|error| ManifestError::InvalidSignature(error.to_string()))?;
+
+    Ok(value)
+}
+
+/// Verifica la firma antes de convertir el resto de los campos al modelo tipado.
+pub fn parse_manifest(
+    document: &[u8],
+    trusted_keys: &BTreeMap<String, VerifyingKey>,
+) -> Result<Manifest, ManifestError> {
+    verify_signed_document(document, trusted_keys)?;
 
     let mut manifest: Manifest = serde_json::from_slice(document)
         .map_err(|error| ManifestError::InvalidJson(error.to_string()))?;
@@ -291,40 +305,53 @@ pub fn validate_source_hosts(
     manifest: &Manifest,
     allowed_hosts: &[&str],
 ) -> Result<(), ManifestError> {
-    fn check(url: &str, allowed_hosts: &[&str], path: &str) -> Result<(), ManifestError> {
-        let authority = url
-            .strip_prefix("https://")
-            .and_then(|url| url.split(['/', '?', '#']).next())
-            .filter(|authority| !authority.is_empty() && !authority.contains('@'));
-        let host = authority.filter(|authority| {
-            authority
-                .bytes()
-                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
-        });
-        if !host.is_some_and(|host| {
-            allowed_hosts
-                .iter()
-                .any(|allowed| host.eq_ignore_ascii_case(allowed))
-        }) {
-            return Err(ManifestError::InvalidField(format!(
-                "host de source.url no permitido para {path}"
-            )));
-        }
-        Ok(())
-    }
-
     for file in &manifest.files {
         match (&file.source, &file.assembly) {
-            (Some(source), _) => check(&source.url, allowed_hosts, &file.path)?,
+            (Some(source), _) => validate_source_host(&source.url, allowed_hosts, &file.path)?,
             (None, Some(assembly)) => {
                 for part in &assembly.parts {
-                    check(&part.source.url, allowed_hosts, &file.path)?;
+                    validate_source_host(&part.source.url, allowed_hosts, &file.path)?;
                 }
             }
             (None, None) => {}
         }
     }
     Ok(())
+}
+
+/// Comprueba que una URL de descarga sea HTTPS y de uno de los hosts permitidos.
+///
+/// Reutilizable por cualquier documento que declare orígenes de descarga (por ejemplo el catálogo
+/// de addons opcionales); `path` solo se usa para identificar el origen en el mensaje de error.
+pub fn validate_source_host(
+    url: &str,
+    allowed_hosts: &[&str],
+    path: &str,
+) -> Result<(), ManifestError> {
+    let authority = url
+        .strip_prefix("https://")
+        .and_then(|url| url.split(['/', '?', '#']).next())
+        .filter(|authority| !authority.is_empty() && !authority.contains('@'));
+    let host = authority.filter(|authority| {
+        authority
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-'))
+    });
+    if !host.is_some_and(|host| {
+        allowed_hosts
+            .iter()
+            .any(|allowed| host.eq_ignore_ascii_case(allowed))
+    }) {
+        return Err(ManifestError::InvalidField(format!(
+            "host de source.url no permitido para {path}"
+        )));
+    }
+    Ok(())
+}
+
+/// Valida que `version` sea una versión semántica admitida (mismas reglas que el manifest).
+pub fn validate_semver(version: &str) -> Result<(), ManifestError> {
+    parse_semver(version).map(|_| ())
 }
 
 pub fn validate_versions(
@@ -391,7 +418,7 @@ pub fn resolve_manifest_path(root: &Path, path: &str) -> Result<PathBuf, Manifes
     Ok(resolved)
 }
 
-fn canonical_json(value: &Value) -> Vec<u8> {
+pub(crate) fn canonical_json(value: &Value) -> Vec<u8> {
     fn write(value: &Value, output: &mut String) {
         match value {
             Value::Object(object) => {
@@ -598,7 +625,10 @@ fn compare_prerelease(left: &str, right: &str) -> Ordering {
     left_parts.len().cmp(&right_parts.len())
 }
 
-fn is_rfc3339_utc(value: &str) -> bool {
+/// Comprueba que el texto sea una marca de tiempo RFC 3339 en UTC (`...Z`).
+///
+/// Reutilizable por otros documentos firmados (catálogo de addons opcionales).
+pub fn is_rfc3339_utc(value: &str) -> bool {
     let Some(timestamp) = value.strip_suffix('Z') else {
         return false;
     };

@@ -7,12 +7,21 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use crate::optional_addons::InstalledAddon;
+
 static NEXT_TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
+/// Ajustes persistidos en `settings.json`.
+///
+/// `optional_addons` registra los addons opcionales instalados por el launcher (nunca los
+/// obligatorios, que los gestiona el manifest) y `optional_addons_catalog_version` guarda la
+/// última `catalogVersion` vista para poder rechazar un catálogo antiguo (anti-rollback).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(crate) struct LauncherSettings {
     pub(crate) client_dir: Option<PathBuf>,
+    pub(crate) optional_addons: Vec<InstalledAddon>,
+    pub(crate) optional_addons_catalog_version: Option<u64>,
 }
 
 pub(crate) fn load_settings(directory: &Path) -> Result<LauncherSettings, String> {
@@ -193,6 +202,7 @@ mod tests {
         let directory = TestDirectory::new();
         let settings = LauncherSettings {
             client_dir: Some(directory.0.join("client")),
+            ..LauncherSettings::default()
         };
 
         save_settings(&directory.0, &settings).expect("guardar ajustes");

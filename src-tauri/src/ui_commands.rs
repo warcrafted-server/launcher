@@ -21,6 +21,7 @@ use crate::update_engine::{
     staging,
 };
 use crate::verify_cache;
+use crate::optional_addons::{self, AddonCatalog, AddonInstallState};
 
 // Configuración actual de producción; al añadir reinos pasará a ser configuración por reino.
 const MANIFEST_URL: &str =
@@ -40,6 +41,8 @@ static NEXT_STAGING_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 static NEXT_BACKUP_FILE: AtomicU64 = AtomicU64::new(0);
 static CANCEL_OPERATION: AtomicBool = AtomicBool::new(false);
 static GAME_RUNNING: AtomicBool = AtomicBool::new(false);
+/// Operación larga en curso (actualizar el cliente, gestionar un addon o comprobar antes de jugar).
+static OPERATION_IN_PROGRESS: AtomicBool = AtomicBool::new(false);
 
 struct GameReservation {
     active: bool,
@@ -72,6 +75,28 @@ fn try_reserve_game(game_running: &AtomicBool) -> bool {
 
 fn release_game(game_running: &AtomicBool) {
     game_running.store(false, Ordering::Release);
+}
+
+/// Reserva exclusiva para operaciones largas: solo una a la vez y se libera siempre al salir,
+/// aunque la función termine por error o por cancelación.
+struct OperationReservation;
+
+impl OperationReservation {
+    fn acquire() -> Result<Self, String> {
+        if OPERATION_IN_PROGRESS
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return Err("Hay otra operación en curso; espera a que termine.".into());
+        }
+        Ok(Self)
+    }
+}
+
+impl Drop for OperationReservation {
+    fn drop(&mut self) {
+        OPERATION_IN_PROGRESS.store(false, Ordering::Release);
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -344,6 +369,7 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     if GAME_RUNNING.load(Ordering::Acquire) {
         return Err("Cierra el juego antes de actualizar: sus archivos están en uso.".into());
     }
+    let _operation = OperationReservation::acquire()?;
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let mut snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
@@ -441,6 +467,233 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         ))
     }
 }
+/// URL del catálogo firmado de addons opcionales (decisión 0005).
+const OPTIONAL_ADDONS_URL: &str =
+    "https://raw.githubusercontent.com/warcrafted-server/launcher/main/docs/contenido/addons.json";
+
+/// Addon opcional tal como lo ve la UI: metadatos del catálogo más el estado calculado.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OptionalAddonSummary {
+    id: String,
+    name: String,
+    description: String,
+    author: String,
+    version: String,
+    license: String,
+    homepage: String,
+    size_bytes: u64,
+    folders: Vec<String>,
+    state: AddonInstallState,
+    installed_version: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct OptionalAddonsResponse {
+    catalog_version: u64,
+    published_at: String,
+    addons: Vec<OptionalAddonSummary>,
+}
+
+/// Clave pública de confianza de los documentos firmados del launcher.
+fn trusted_document_keys() -> Result<BTreeMap<String, VerifyingKey>, String> {
+    let public_key_bytes = decode_public_key(MANIFEST_PUBLIC_KEY_HEX)?;
+    let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)
+        .map_err(|error| format!("clave pública de manifest inválida: {error}"))?;
+    Ok(BTreeMap::from([(MANIFEST_KEY_ID.to_owned(), verifying_key)]))
+}
+
+/// Descarga y valida el catálogo de addons opcionales, y recuerda su `catalogVersion`.
+///
+/// Un fallo de red o de firma se traduce en un error de esta operación y nunca afecta al cliente
+/// obligatorio: los addons opcionales son un extra y su catálogo no bloquea el juego.
+async fn fetch_optional_addons_catalog(app: &AppHandle) -> Result<AddonCatalog, String> {
+    let config_dir = settings_directory(app)?;
+    let mut launcher_settings = settings::load_settings(&config_dir)?;
+    let previous_version = launcher_settings.optional_addons_catalog_version;
+
+    let response = reqwest::get(OPTIONAL_ADDONS_URL)
+        .await
+        .map_err(|error| format!("no se pudo descargar el catálogo de addons: {error}"))?
+        .error_for_status()
+        .map_err(|error| format!("respuesta HTTP inválida para el catálogo de addons: {error}"))?;
+    let document = response
+        .bytes()
+        .await
+        .map_err(|error| format!("no se pudo leer el catálogo de addons: {error}"))?;
+
+    let catalog = optional_addons::parse_catalog(&document, &trusted_document_keys()?, previous_version)
+        .map_err(|error| format!("no se pudo validar el catálogo de addons: {error}"))?;
+    if previous_version != Some(catalog.catalog_version) {
+        launcher_settings.optional_addons_catalog_version = Some(catalog.catalog_version);
+        settings::save_settings(&config_dir, &launcher_settings)?;
+    }
+    Ok(catalog)
+}
+
+/// Carpeta del cliente configurada, o `None` si no hay o ya no es válida.
+fn current_client_dir(app: &AppHandle) -> Result<Option<PathBuf>, String> {
+    let config_dir = settings_directory(app)?;
+    let launcher_settings = settings::load_settings(&config_dir)?;
+    Ok(launcher_settings
+        .client_dir
+        .and_then(|path| settings::validate_client_dir(&path).ok()))
+}
+
+/// Lista el catálogo de addons opcionales con su estado, sin tocar el disco del cliente.
+#[tauri::command]
+pub(crate) async fn list_optional_addons(app: AppHandle) -> Result<OptionalAddonsResponse, String> {
+    let catalog = fetch_optional_addons_catalog(&app).await?;
+    let config_dir = settings_directory(&app)?;
+    let launcher_settings = settings::load_settings(&config_dir)?;
+    let client_dir = current_client_dir(&app)?;
+
+    let addons = catalog
+        .addons
+        .iter()
+        .map(|addon| {
+            let installed =
+                optional_addons::find_installed(&launcher_settings.optional_addons, &addon.id);
+            let present = client_dir.as_ref().is_some_and(|dir| {
+                optional_addons::addon_folders_present(
+                    &optional_addons::addons_root(dir),
+                    &addon.folders,
+                )
+            });
+            OptionalAddonSummary {
+                id: addon.id.clone(),
+                name: addon.name.clone(),
+                description: addon.description.clone(),
+                author: addon.author.clone(),
+                version: addon.version.clone(),
+                license: addon.license.clone(),
+                homepage: addon.homepage.clone(),
+                size_bytes: addon.size_bytes,
+                folders: addon.folders.clone(),
+                state: optional_addons::decide_addon_state(&addon.version, installed, present),
+                installed_version: installed.map(|record| record.version.clone()),
+            }
+        })
+        .collect();
+
+    Ok(OptionalAddonsResponse {
+        catalog_version: catalog.catalog_version,
+        published_at: catalog.published_at.clone(),
+        addons,
+    })
+}
+
+/// Instala un addon opcional del catálogo.
+///
+/// `replace_existing` autoriza sustituir carpetas que no gestiona el launcher; la UI debe avisar
+/// antes al jugador y volver a llamar con `true` solo si lo confirma.
+#[tauri::command]
+pub(crate) async fn install_optional_addon(
+    app: AppHandle,
+    id: String,
+    replace_existing: bool,
+) -> Result<(), String> {
+    apply_optional_addon(app, id, replace_existing, false).await
+}
+
+/// Actualiza un addon opcional ya instalado (mismas garantías que la instalación).
+#[tauri::command]
+pub(crate) async fn update_optional_addon(app: AppHandle, id: String) -> Result<(), String> {
+    apply_optional_addon(app, id, true, true).await
+}
+
+/// Instala o actualiza un addon opcional del catálogo firmado.
+async fn apply_optional_addon(
+    app: AppHandle,
+    id: String,
+    replace_existing: bool,
+    update: bool,
+) -> Result<(), String> {
+    if GAME_RUNNING.load(Ordering::Acquire) {
+        return Err("Cierra el juego antes de gestionar los addons: sus archivos están en uso.".into());
+    }
+    let _operation = OperationReservation::acquire()?;
+    CANCEL_OPERATION.store(false, Ordering::Relaxed);
+    let client_dir = configured_client_dir(&app)?;
+    let catalog = fetch_optional_addons_catalog(&app).await?;
+    let addon = catalog
+        .addons
+        .into_iter()
+        .find(|addon| addon.id == id)
+        .ok_or_else(|| format!("El addon «{id}» no está en el catálogo."))?;
+
+    // Los addons obligatorios son intocables: se comprueba contra el manifest antes de escribir.
+    let manifest = fetch_manifest().await?;
+    let required_folders = optional_addons::required_addon_folders(&manifest);
+    optional_addons::validate_required_addon_conflicts(&addon.folders, &required_folders)
+        .map_err(|error| error.to_string())?;
+
+    let config_dir = settings_directory(&app)?;
+    let mut launcher_settings = settings::load_settings(&config_dir)?;
+    let registered =
+        optional_addons::find_installed(&launcher_settings.optional_addons, &addon.id).cloned();
+    if update && registered.is_none() {
+        return Err("Ese addon opcional no está instalado.".into());
+    }
+
+    let install_root = prepare_install_root(&client_dir)?;
+    let staging_layout = create_staging_layout(&install_root)?;
+    let client = reqwest::Client::builder()
+        .build()
+        .map_err(|error| format!("no se pudo preparar el cliente HTTP: {error}"))?;
+    if CANCEL_OPERATION.load(Ordering::Relaxed) {
+        return Err("Operación cancelada.".into());
+    }
+    let mut download_progress = DownloadProgressReporter::new(&app, addon.size_bytes);
+    let record = optional_addons::install_addon(
+        &client,
+        &addon,
+        &client_dir,
+        &staging_layout.run.0,
+        &staging_layout.downloads,
+        registered.as_ref(),
+        replace_existing,
+        &mut |bytes| download_progress.record(bytes),
+    )
+    .await
+    .map_err(|error| error.to_string())?;
+    download_progress.finish_file();
+
+    // Si el jugador cancela mientras se descargaba, el addon ya está en el cliente: se registra
+    // igual, para que el estado que muestra la UI coincida con lo que hay en `Interface/AddOns`.
+    launcher_settings
+        .optional_addons
+        .retain(|existing| existing.id != record.id);
+    launcher_settings.optional_addons.push(record);
+    settings::save_settings(&config_dir, &launcher_settings)
+}
+
+/// Desinstala un addon opcional: borra solo las carpetas que registró el launcher.
+#[tauri::command]
+pub(crate) async fn uninstall_optional_addon(app: AppHandle, id: String) -> Result<(), String> {
+    if GAME_RUNNING.load(Ordering::Acquire) {
+        return Err("Cierra el juego antes de gestionar los addons: sus archivos están en uso.".into());
+    }
+    let _operation = OperationReservation::acquire()?;
+    let client_dir = configured_client_dir(&app)?;
+    let config_dir = settings_directory(&app)?;
+    let mut launcher_settings = settings::load_settings(&config_dir)?;
+    let record = optional_addons::find_installed(&launcher_settings.optional_addons, &id)
+        .cloned()
+        .ok_or_else(|| "Ese addon opcional no está instalado.".to_owned())?;
+
+    tokio::task::spawn_blocking(move || optional_addons::uninstall_addon(&client_dir, &record))
+        .await
+        .map_err(|error| format!("no se pudo completar la desinstalación: {error}"))?
+        .map_err(|error| error.to_string())?;
+
+    launcher_settings
+        .optional_addons
+        .retain(|existing| existing.id != id);
+    settings::save_settings(&config_dir, &launcher_settings)
+}
+
 
 #[tauri::command]
 pub(crate) fn get_disk_space(app: AppHandle) -> Result<DiskSpaceResponse, String> {
@@ -467,6 +720,9 @@ pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
         return Err("El juego ya está en ejecución.".into());
     }
     let mut reservation = GameReservation::new();
+    // La reserva de operación se mantiene solo hasta lanzar el juego: después el cliente en marcha
+    // se protege con `GAME_RUNNING`, que sigue activo mientras el juego esté abierto.
+    let _operation = OperationReservation::acquire()?;
     CANCEL_OPERATION.store(false, Ordering::Relaxed);
     let client_dir = configured_client_dir(&app)?;
     let snapshot = load_client_snapshot(&app, &client_dir, VerifyMode::Quick).await?;
@@ -690,10 +946,7 @@ async fn fetch_manifest() -> Result<Manifest, String> {
         .await
         .map_err(|error| format!("no se pudo leer el manifest: {error}"))?;
 
-    let public_key_bytes = decode_public_key(MANIFEST_PUBLIC_KEY_HEX)?;
-    let verifying_key = VerifyingKey::from_bytes(&public_key_bytes)
-        .map_err(|error| format!("clave pública de manifest inválida: {error}"))?;
-    let trusted_keys = BTreeMap::from([(MANIFEST_KEY_ID.to_owned(), verifying_key)]);
+    let trusted_keys = trusted_document_keys()?;
     let manifest = parse_manifest(&document, &trusted_keys)
         .map_err(|error| format!("no se pudo validar el manifest: {error}"))?;
     validate_target(
@@ -1122,6 +1375,17 @@ mod tests {
         release_game(&game_running);
 
         assert!(try_reserve_game(&game_running));
+    }
+
+    #[test]
+    fn operation_reservation_only_allows_one_operation_at_a_time() {
+        let first = OperationReservation::acquire().expect("la primera operación reserva");
+
+        assert!(OperationReservation::acquire().is_err());
+
+        drop(first);
+
+        assert!(OperationReservation::acquire().is_ok());
     }
 
     struct TestDirectory(PathBuf);

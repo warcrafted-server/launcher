@@ -116,7 +116,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: tests con un PE mínimo sintético con VS_FIXEDFILEINFO; lista de candidatos en UI.
 - Ejecutor: AgentRelay, esfuerzo medio.
 
-### [ ] 9. Addons opcionales: catálogo y backend — 0.9.0 (menor)
+### [x] 9. Addons opcionales: catálogo y backend — 0.9.0 (menor)
 - Diseño (ADR `docs/decisiones/0005-addons-opcionales.md`, lo escribe el orquestador): catálogo
   `docs/contenido/addons.json` firmado igual que el manifest (misma clave), entradas con `id`,
   `name`, `description`, `author`, `version`, `license`, `homepage`, `sha256`, `sizeBytes`,

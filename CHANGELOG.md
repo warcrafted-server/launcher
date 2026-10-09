@@ -6,6 +6,22 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.9.0] - 2026-10-09
+
+Addons opcionales: catálogo y backend (menor: funcionalidad nueva compatible; sin interfaz todavía).
+
+### Añadido
+
+- Decisión 0005 y módulo `optional_addons`: catálogo `addons.json` firmado con la clave del manifest
+  (anti-rollback, hosts permitidos, carpetas de una sola componente, sin colisión con addons
+  obligatorios ni `Blizzard_*`). Separado del manifest de contenido en datos y en código.
+- Comandos `list_optional_addons`, `install_optional_addon`, `update_optional_addon` y
+  `uninstall_optional_addon`: descarga verificada y reanudable, extracción atómica solo de las
+  carpetas declaradas y registro en los ajustes (`optionalAddons`). Desinstalar borra únicamente las
+  carpetas registradas. No bloquean Jugar ni entran en la verificación del cliente.
+- `docs/contenido/generar_catalogo_addons.py` (con tests) y `docs/contenido/PUBLICAR-ADDONS.md` para
+  generar, firmar y publicar el catálogo.
+
 ## [0.8.0] - 2026-10-09
 
 Detección de clientes instalados y validación de la versión (menor: funcionalidad nueva compatible).
