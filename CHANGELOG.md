@@ -6,6 +6,15 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.10.1] - 2026-10-09
+
+Cambio de icono (parche: solo recursos gráficos).
+
+### Cambiado
+
+- El icono de la aplicación y del instalador pasa a ser el emblema cuadrado «WarCrafted Universe»
+  (`src/assets/icono-warcrafted.jpg`), regenerado con `npx tauri icon`.
+
 ## [0.10.0] - 2026-10-09
 
 Addons opcionales: interfaz (menor: funcionalidad nueva compatible).

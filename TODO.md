@@ -19,11 +19,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Prioridad 2 — producto distribuible
 
-- [ ] Icono de la aplicación: usar el emblema cuadrado «WarCrafted Universe» (1024×1024, fondo de
-      piedra oscura) que el usuario ha enseñado en la sesión. Falta el archivo en el repo: pedirlo
-      o que lo copie a `src/assets/`, y luego `npx tauri icon <archivo>` (hoy los iconos salen del
-      logo apaisado con `--fit contain`). Misma duda de licencia que el logotipo (ver abajo).
-
 - [ ] **(decisión)** Firma de código de Windows: sin ella SmartScreen avisará al instalar
 - [ ] **(decisión)** Clave de firma del manifest en más equipos (hoy solo en el Debian de casa)
 - [ ] Mover el origen de descarga si GitHub se queda corto (límites de ancho de banda no medidos
@@ -52,7 +47,7 @@ Plan de ejecución de distribución, autoactualización y descargas:
 - [ ] Crear en GitHub (Settings → Secrets → Actions) `TAURI_SIGNING_PRIVATE_KEY` (contenido de
       `~/.warcrafted/updater.key`) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: sin ellos el workflow de
       release falla al firmar. Los secrets solo los puede crear el usuario.
-- [ ] **(decisión)** Logotipo: averiguar qué herramienta de IA lo generó y si sus condiciones
+- [ ] **(decisión)** Logotipo e icono (`src/assets/icono-warcrafted.jpg`): el usuario cree que se generaron con Nano Banana (Gemini); sin verificar. Averiguar si sus condiciones permiten el uso y la redistribución (antes: qué herramienta de IA los generó y si sus condiciones
       permiten el uso y la redistribución; hasta entonces está excluido de la licencia
       (`CREDITS.md`). Resolverlo antes de publicar el instalador.
 - [ ] **(decisión)** Tags `vX.Y.Z`: los dispara el usuario (o con su aprobación) y el workflow de release publica

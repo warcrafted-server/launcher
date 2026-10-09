@@ -27,6 +27,6 @@ Salida: `src-tauri\target\release\bundle\nsis\WarCrafted Launcher_X.Y.Z_x64-setu
 
 El instalador incluye `LICENSE`, `CREDITS.md` y `THIRD-PARTY-NOTICES.md` junto al ejecutable. Si
 cambian las dependencias, regenera este último con `python3 scripts/third-party.py` antes de
-compilar. Los iconos salen de `src/assets/logo-warcrafted.jpg` con
-`npx tauri icon src/assets/logo-warcrafted.jpg --fit contain` (el logotipo tiene su licencia
+compilar. Los iconos salen de `src/assets/icono-warcrafted.jpg` (cuadrado) con
+`npx tauri icon src/assets/icono-warcrafted.jpg` (el logotipo y el icono tienen su licencia
 pendiente de verificar: no publiques el instalador hasta resolverlo).
