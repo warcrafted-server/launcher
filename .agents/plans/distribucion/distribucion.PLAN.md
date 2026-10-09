@@ -10,7 +10,7 @@ sockets: 3 tests de `staging` fallan solo ahí). Al terminar cada paso: versión
 `TODO.md`, commit. **Push y tags solo con aprobación explícita del usuario.** Marca `[x]` aquí.
 Si aparece un imprevisto de diseño, para y anótalo en «Bloqueos» en vez de improvisar.
 
-Punto de partida: versión 0.2.0 (commit `ee25339`, pendiente de push).
+Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarCrafted).
 
 ## Decisiones ya tomadas (no reabrir)
 
@@ -26,12 +26,13 @@ Punto de partida: versión 0.2.0 (commit `ee25339`, pendiente de push).
   pre-release para que nunca sean «latest» (hoy `latest` = `RuneEngraver`, comprobado
   2026-10-09). Cada release del launcher es `vX.Y.Z`, creada por CI al subir el tag, con
   `make_latest: true`.
-- **Licencia**: pendiente de autorización del usuario (propuesta WNCL-TP-1.0, ver conversación);
-  no aplicar nada de licencias desde este plan.
+- **Licencia**: WNCL-TP-1.0 aplicada (`LICENSE`, `CREDITS.md`, `THIRD-PARTY-NOTICES.md`). No tocar
+  nada de licencias desde este plan. El logotipo está excluido y pendiente de verificar (ver
+  `TODO.md`): no publicar instalador sin resolverlo.
 
 ## Pasos
 
-### [ ] 1. CI de tests en GitHub Actions — 0.2.1 (parche: interno)
+### [ ] 1. CI de tests en GitHub Actions — 0.2.2 (parche: interno)
 - Archivos: `.github/workflows/ci.yml`.
 - En push a `main` y PR: job `ubuntu-latest` (deps de sistema de Tauri, `npm ci`, `npm run build`,
   `cargo test` en `src-tauri`, `python3 -m unittest docs/contenido/test_publicar_parches.py`) y job
@@ -43,7 +44,9 @@ Punto de partida: versión 0.2.0 (commit `ee25339`, pendiente de push).
 ### [ ] 2. Instalador NSIS — 0.3.0 (menor)
 - Archivos: `src-tauri/tauri.conf.json` (bundle: `targets: ["nsis"]`, `windows.nsis.installMode:
   "currentUser"`, `windows.webviewInstallMode: { type: "embedBootstrapper" }`, `publisher`,
-  `shortDescription`, `copyright` vacío hasta decidir licencia), iconos generados desde el logo
+  `shortDescription`, `copyright: "Copyright (C) 2026 WarCrafted"`, y `bundle.resources` con `LICENSE`,
+  `CREDITS.md` y `THIRD-PARTY-NOTICES.md` incluidos en la instalación; regenera este último con
+  `python3 scripts/third-party.py` si cambian dependencias), iconos generados desde el logo
   con `npx tauri icon src/assets/logo-warcrafted.jpg` (el orquestador, no el ejecutor),
   `docs/INSTALACION.md` (instalar como jugador y compilar el instalador), README resumido.
 - Terminado: `npm run tauri build` en Windows genera el `-setup.exe` y el usuario lo instala,

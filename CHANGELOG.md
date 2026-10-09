@@ -6,6 +6,18 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.2.1] - 2026-10-09
+
+Licencia y avisos de terceros; sin cambios de comportamiento.
+
+### Añadido
+
+- Licencia WNCL-TP-1.0 (`LICENSE`): uso, estudio, modificación y redistribución gratuitos no
+  comerciales; prohíbe vender o monetizar sin permiso por escrito.
+- `CREDITS.md` y `THIRD-PARTY-NOTICES.md` (generado con `scripts/third-party.py`) con el inventario
+  de 509 componentes de terceros y sus licencias.
+- Sección de créditos y licencia en el README.
+
 ## [0.2.0] - 2026-10-09
 
 Interfaz completa en pestañas, verificación rápida y publicación automática de parches.

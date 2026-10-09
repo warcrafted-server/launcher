@@ -5,7 +5,7 @@ Warcraft: Wrath of the Lich King (build 3.3.5a / 12340). Es el punto de entrada 
 detecta y prepara el cliente, descarga y verifica parches y addons obligatorios, repara archivos
 dañados y lanza el juego, sin que el jugador tenga que gestionar nada a mano.
 
-> **Estado del proyecto: en desarrollo activo (versión 0.2.0), sin instalador ni release todavía.** Este README
+> **Estado del proyecto: en desarrollo activo (versión 0.2.1), sin instalador ni release todavía.** Este README
 > describe lo que existe hoy, no un objetivo final. El estado detallado y los próximos pasos
 > viven en [`docs/ESTADO.md`](docs/ESTADO.md).
 
@@ -139,7 +139,17 @@ y el historial en [`CHANGELOG.md`](CHANGELOG.md).
 - [`docs/contenido/PUBLICAR-PARCHES.md`](docs/contenido/PUBLICAR-PARCHES.md) — cómo se publican parches y addons.
 - [`docs/ESTADO.md`](docs/ESTADO.md) — estado actual, qué toca ahora y cómo retomar el trabajo.
 
-## Licencia
+## Créditos y licencia
 
-Pendiente de decidir. Todas las dependencias se auditan (incluidas las transitivas) para no
-imponer condiciones que limiten la elección final de licencia del proyecto.
+**WarCrafted Launcher** está desarrollado y mantenido por **WarCrafted**.
+Copyright (C) 2026 WarCrafted.
+
+Licencia [WNCL-TP-1.0](LICENSE): puedes usarlo, estudiarlo, modificarlo y compartirlo gratis con fines no comerciales. Venderlo o cualquier uso comercial requiere permiso por escrito. Solo cubre el material propio; los componentes de terceros conservan su licencia.
+
+Las copias y los forks deben conservar esta atribución y enlazar a https://github.com/warcrafted-server/launcher.
+
+### Material de terceros
+
+Ver [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md): 506 componentes de Rust y 3 de JavaScript, todos con licencias permisivas (MIT, Apache-2.0 y similares; cinco de Tauri bajo MPL-2.0, sin modificar). El logotipo queda fuera del alcance de la licencia; ver [`CREDITS.md`](CREDITS.md).
+
+Créditos completos: [CREDITS.md](CREDITS.md).

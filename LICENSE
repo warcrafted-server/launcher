@@ -1,0 +1,15 @@
+WNCL-TP-1.0 — WarCrafted Non-Commercial Third-Party License
+
+Copyright (c) 2026 WarCrafted
+Author: WarCrafted <warcrafted.server@gmail.com>
+Project: WarCrafted Launcher
+Repository: https://github.com/warcrafted-server/launcher
+
+1. License grant and limits. This custom license applies exclusively to original material in this project for which the identified copyright holder has sufficient rights to grant the permissions below. It does not automatically license or relicense the repository as a whole. For that covered material only, you may use it without charge for non-commercial purposes, study it, modify it, create derivative works, and redistribute copies or derivative works free of charge. You may not sell or resell the covered material or copies or derivatives of it, charge for access to it or for copies, monetize it, or otherwise commercially exploit it without separate prior written permission from the copyright holder. You must preserve all copyright notices and attribution, identify WarCrafted as the original author, identify your modifications, and, when publishing a fork or derivative, identify the original project and provide a link to it at https://github.com/warcrafted-server/launcher. You may not remove or obscure the original attribution or copyright notices, conceal or falsify authorship, present a derivative as a wholly independent original work, or remove the required link to the original project.
+2. Third-party material excluded. Third-party code, libraries, dependencies, assets, fonts, images, sounds, examples, snippets, and any other third-party material are outside the scope of this license. They are not relicensed by this text; each retains its original license and applicable notices and obligations, including any source, attribution, NOTICE, or share-alike obligations. Document such material where needed to identify its origin and terms.
+3. Compatibility before distribution. Before distributing the combined project, identify origins and licenses, preserve required notices, and verify that the licenses permit the intended modification, combination, and distribution. If a third-party license is unclear or incompatible with the restrictions desired here, do not use this license to override it and do not distribute the affected combination until reviewed. Separate components and apply distinct licenses if necessary.
+4. No copyright transfer. No ownership of the covered material is transferred.
+5. Termination. Permission for covered material terminates automatically upon breach.
+6. Disclaimer. To the maximum extent permitted by law, covered material is provided “AS IS”, without express or implied warranties, including merchantability, fitness for a particular purpose, and non-infringement. The copyright holder disclaims liability for damages arising from use to the maximum extent permitted by law.
+
+This is a custom license, not an OSI-approved Open Source license or standard SPDX license.

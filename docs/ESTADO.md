@@ -1,7 +1,7 @@
 # Estado del launcher
 
 Mantén este archivo al día con cada cambio relevante, no al final de la tarea. Es lo primero que
-lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-08** (versión 0.2.0).
+lee una sesión nueva sobre `launcher/`. Última actualización: **2026-10-08** (versión 0.2.1).
 
 ## Dónde estamos
 
@@ -103,7 +103,7 @@ arquitectura):**
 
 ## Próximo paso
 
-La versión actual es la 0.2.0 (ver `CHANGELOG.md` y `docs/VERSIONADO.md`). Ya existen los comandos
+La versión actual es la 0.2.1 (ver `CHANGELOG.md` y `docs/VERSIONADO.md`). Ya existen los comandos
 Tauri (`check_client_status`, `update_client`, `launch_game`) y una primera pantalla funcional.
 
 Las tareas pendientes, por orden de prioridad, viven en [`TODO.md`](../TODO.md); no se duplican

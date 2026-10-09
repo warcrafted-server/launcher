@@ -56,7 +56,10 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Pendientes administrativos
 
-- [ ] **(decisión)** Licencia del proyecto (usar la Skill `licencias`; nada se aplica sin tu orden)
-- [ ] **(decisión)** Crear y subir el tag `v0.1.0`
-- [ ] Añadir la regla global de versionado y changelog al repo `dotclaude` (no está clonado en este
-      equipo)
+- [ ] **(decisión)** Logotipo: averiguar qué herramienta de IA lo generó y si sus condiciones
+      permiten el uso y la redistribución; hasta entonces está excluido de la licencia
+      (`CREDITS.md`). Resolverlo antes de publicar el instalador.
+- [ ] **(decisión)** Tags `vX.Y.Z`: los crea el flujo de release del plan de distribución, con la
+      aprobación del usuario en cada caso
+- [ ] Cambiar el remoto `origin` de HTTPS a SSH (`git@github-warcrafted:warcrafted-server/launcher.git`)
+      según las reglas globales; necesita la aprobación del usuario
