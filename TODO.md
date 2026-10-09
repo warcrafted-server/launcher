@@ -27,7 +27,11 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Prioridad 2 — producto distribuible
 
-- [ ] Autoactualización del propio launcher (updater de Tauri con firma propia)
+- [ ] Icono de la aplicación: usar el emblema cuadrado «WarCrafted Universe» (1024×1024, fondo de
+      piedra oscura) que el usuario ha enseñado en la sesión. Falta el archivo en el repo: pedirlo
+      o que lo copie a `src/assets/`, y luego `npx tauri icon <archivo>` (hoy los iconos salen del
+      logo apaisado con `--fit contain`). Misma duda de licencia que el logotipo (ver abajo).
+
 - [ ] Publicación de releases por tag `vX.Y.Z` con GitHub Actions (los tests ya corren en CI)
 - [ ] **(decisión)** Firma de código de Windows: sin ella SmartScreen avisará al instalar
 - [ ] **(decisión)** Clave de firma del manifest en más equipos (hoy solo en el Debian de casa)

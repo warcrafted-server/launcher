@@ -1,6 +1,6 @@
 [package]
 name = "warcrafted-launcher"
-version = "0.3.0"
+version = "0.4.0"
 description = "WarCrafted Launcher"
 authors = ["WarCrafted"]
 license-file = "../LICENSE"
@@ -29,6 +29,8 @@ reqwest = { version = "0.13.5", features = ["stream"] }
 tar = "0.4.46"
 tokio = { version = "1", features = ["fs", "io-util", "time", "macros", "rt", "rt-multi-thread"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-updater = "2.13.2"
+tauri-plugin-process = "2.4.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

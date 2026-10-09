@@ -54,7 +54,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Ejecutor: AgentRelay, esfuerzo medio. Compilación en Windows: la hace el usuario (o el CI del
   paso 4).
 
-### [ ] 3. Autoactualización del launcher — 0.4.0 (menor)
+### [x] 3. Autoactualización del launcher (hecho; prueba extremo a extremo pendiente hasta el paso 4) — 0.4.0 (menor)
 - Orquestador: `cargo add tauri-plugin-updater tauri-plugin-process` y
   `npm install @tauri-apps/plugin-updater @tauri-apps/plugin-process`; verifica licencias
   (deben ser MIT/Apache).

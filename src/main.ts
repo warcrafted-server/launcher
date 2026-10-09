@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { checkLauncherUpdate } from "./updater";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -111,6 +112,7 @@ window.addEventListener("warcrafted-open-url", (event) => {
 
 void loadSettings();
 void loadGameState();
+void checkLauncherUpdate();
 
 function requiredElement<T extends HTMLElement>(selector: string): T {
   const element = document.querySelector<T>(selector);

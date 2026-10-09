@@ -6,6 +6,19 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.4.0] - 2026-10-09
+
+Autoactualización del launcher (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Al arrancar, el launcher consulta `latest.json` de la última release y, si hay una versión
+  mayor, muestra un aviso con las notas y el botón «Actualizar launcher» (descarga con progreso,
+  instala y reinicia). No actualiza mientras hay una comprobación, descarga o lanzamiento del
+  cliente en curso.
+- `tauri-plugin-updater` (firma minisign propia, distinta de la del manifest; rechaza firmas
+  inválidas) y `tauri-plugin-process`, ambos MIT/Apache-2.0; instalación `passive`.
+
 ## [0.3.0] - 2026-10-09
 
 Instalador de Windows (menor: funcionalidad nueva compatible).
