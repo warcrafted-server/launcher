@@ -61,5 +61,3 @@ Plan de ejecución de distribución, autoactualización y descargas:
       (`CREDITS.md`). Resolverlo antes de publicar el instalador.
 - [ ] **(decisión)** Tags `vX.Y.Z`: los crea el flujo de release del plan de distribución, con la
       aprobación del usuario en cada caso
-- [ ] Cambiar el remoto `origin` de HTTPS a SSH (`git@github-warcrafted:warcrafted-server/launcher.git`)
-      según las reglas globales; necesita la aprobación del usuario
