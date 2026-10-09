@@ -7,6 +7,9 @@ detallado está en [`docs/ESTADO.md`](docs/ESTADO.md).
 
 Leyenda: **(decisión)** requiere que el usuario decida.
 
+Plan de ejecución de distribución, autoactualización y descargas:
+[`.agents/plans/distribucion/distribucion.PLAN.md`](.agents/plans/distribucion/distribucion.PLAN.md).
+
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
 
 - [ ] Buscar en el disco instalaciones existentes de WoW 3.3.5a (por ejemplo, carpetas con `Wow.exe`
