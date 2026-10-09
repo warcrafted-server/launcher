@@ -419,6 +419,35 @@ async function createNewInstall(): Promise<void> {
   if (shouldCheck) await checkClient();
 }
 
+// El margen del 10 % para el staging es el mismo que aplica el backend antes de descargar.
+function hasEnoughSpace(status: ClientStatusResponse): boolean {
+  return status.freeBytes === null || status.freeBytes >= status.pendingBytes * 1.1;
+}
+
+function notInstalledSummary(status: ClientStatusResponse): string {
+  const need = `Descarga de ${formatGiB(status.pendingBytes)}`;
+  return status.freeBytes === null ? need : `${need} · ${formatGiB(status.freeBytes)} libres`;
+}
+
+function showNotInstalled(status: ClientStatusResponse): void {
+  setSummary("Cliente no instalado", "warning", "!", notInstalledSummary(status));
+  const need = formatGiB(status.pendingBytes);
+  if (status.freeBytes === null) {
+    showMessage(`El cliente aún no está instalado en esta carpeta. Hay que descargar ${need}.`, "info");
+  } else if (hasEnoughSpace(status)) {
+    showMessage(
+      `El cliente aún no está instalado en esta carpeta. Hay que descargar ${need} y tienes ${formatGiB(status.freeBytes)} libres en este disco.`,
+      "info",
+    );
+  } else {
+    const missing = formatGiB(status.pendingBytes * 1.1 - status.freeBytes);
+    showMessage(
+      `No hay espacio suficiente: hay que descargar ${need} (más un 10 % de margen) y solo tienes ${formatGiB(status.freeBytes)} libres. Faltan unos ${missing}.`,
+      "warning",
+    );
+  }
+}
+
 function formatGiB(bytes: number): string {
   return `${(bytes / 1024 ** 3).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
 }
@@ -511,10 +540,7 @@ async function checkClient(full = false): Promise<void> {
     showHealthyFiles.checked = attentionCount === 0;
     renderFiles();
     if (!status.installed) {
-      const need = formatGiB(status.pendingBytes);
-      const free = status.freeBytes === null ? "" : ` · Libre: ${formatGiB(status.freeBytes)}`;
-      setSummary("Cliente no instalado", "warning", "!", `Se descargarán ${need}${free}`);
-      showMessage(`El cliente no está instalado. Se descargará completo (${need}${free}).`, "info");
+      showNotInstalled(status);
     } else {
       const summary = attentionCount === 0
         ? "Cliente listo para jugar"
@@ -554,6 +580,12 @@ async function updateClient(): Promise<void> {
   hasDownloadProgress = false;
   refreshButtons();
   clearMessage();
+  setSummary(
+    clientInstalled === false ? "Descargando el cliente" : "Actualizando el cliente",
+    "busy",
+    "◌",
+    "Descargando archivos…",
+  );
   setProgressStatus("Preparando la actualización…");
   hideProgressMeter();
 
@@ -581,7 +613,7 @@ async function updateClient(): Promise<void> {
     showHealthyFiles.checked = attentionCount === 0;
     renderFiles();
     if (!status.installed) {
-      setSummary("Cliente no instalado", "warning", "!", "Se descargará el cliente completo (unos 18,5 GB)");
+      setSummary("Cliente no instalado", "warning", "!", notInstalledSummary(status));
     } else if (attentionCount === 0) {
       setSummary("Cliente listo para jugar", "ok", "✓");
     } else {
@@ -592,8 +624,10 @@ async function updateClient(): Promise<void> {
     const message = errorMessage(error);
     if (isCancellation(message)) {
       showMessage("Operación cancelada.", "info");
+      setSummary("Actualización cancelada", "warning", "!", "Pulsa Comprobar estado o Instalar para continuar");
     } else {
       showMessage(`No se pudo completar la actualización: ${message}`, "error");
+      setSummary("No se pudo completar la actualización", "error", "!");
     }
   } finally {
     stopDownloadListening?.();
@@ -696,9 +730,10 @@ function showDownloadProgress(payload: DownloadProgressPayload): void {
   progressBar.max = total;
   progressBar.value = Math.min(Math.max(payload.bytesDone, 0), total);
   progressMeter.hidden = false;
-  const parts = [`${formatGiB(payload.bytesDone)} de ${formatGiB(payload.bytesTotal)}`];
+  const percent = Math.min(100, Math.floor((payload.bytesDone / total) * 100));
+  const parts = [`${formatGiB(payload.bytesDone)} de ${formatGiB(payload.bytesTotal)} (${percent} %)`];
   if (payload.speedBytesPerSec > 0) parts.push(formatSpeed(payload.speedBytesPerSec));
-  if (payload.etaSeconds !== null) parts.push(formatEta(payload.etaSeconds));
+  if (payload.etaSeconds !== null) parts.push(`quedan ${formatRemaining(payload.etaSeconds)}`);
   setProgressStatus(parts.join(" · "));
 }
 
@@ -709,9 +744,12 @@ function formatSpeed(bytesPerSecond: number): string {
   return `${Math.max(1, Math.round(bytesPerSecond / 1024)).toLocaleString("es-ES")} KB/s`;
 }
 
-function formatEta(seconds: number): string {
-  if (seconds < 60) return `${seconds} s`;
-  return `${Math.ceil(seconds / 60).toLocaleString("es-ES")} min`;
+function formatRemaining(seconds: number): string {
+  if (seconds < 60) return `unos ${Math.max(1, Math.round(seconds))} s`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `unos ${minutes} min`;
+  const rest = minutes % 60;
+  return `unas ${Math.floor(minutes / 60)} h${rest > 0 ? ` ${rest} min` : ""}`;
 }
 
 function setProgressStatus(message: string): void {

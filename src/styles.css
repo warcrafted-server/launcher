@@ -371,7 +371,8 @@ h3 { color: #e8d9b6; font-size: 14px; font-weight: 600; }
 .optional-progress-text { flex: 0 0 auto; color: #c3bcad; font-size: 10px; white-space: nowrap; }
 .optional-cancel-button { flex: 0 0 auto; padding: 4px 10px; font-size: 10px; }
 
-.settings-page { gap: 9px; }
+.settings-page { gap: 9px; overflow-y: auto; padding-right: 4px; scrollbar-color: rgba(212, 169, 74, 0.4) rgba(11, 13, 16, 0.5); scrollbar-width: thin; }
+.settings-page > * { flex-shrink: 0; }
 .settings-page > h1 { margin-bottom: 2px; }
 .folder-card { min-height: 77px; flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 11px 16px 11px 19px; border-radius: 8px; }
 .folder-copy { min-width: 0; }
@@ -390,7 +391,7 @@ h3 { color: #e8d9b6; font-size: 14px; font-weight: 600; }
 .settings-summary[data-state="ok"] svg { color: var(--success); }
 .settings-summary[data-state="warning"] svg { color: var(--warning); }
 .settings-summary[data-state="error"] svg { color: var(--error); }
-.file-section { min-height: 0; flex: 1 1 auto; display: flex; flex-direction: column; padding: 12px 14px 10px; border-radius: 8px; }
+.file-section { min-height: 240px; flex: 1 0 auto; display: flex; flex-direction: column; padding: 12px 14px 10px; border-radius: 8px; }
 .file-list-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
 .file-list-heading h2 { margin: 0; color: var(--gold-light); font-size: 14px; font-weight: 600; }
 .file-list-heading span { color: var(--muted); font-size: 9px; }

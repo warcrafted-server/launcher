@@ -6,6 +6,26 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.11.1] - 2026-10-09
+
+Retoques de interfaz (parche).
+
+### Corregido
+
+- La ventana no se arrastraba desde el hueco de la barra superior entre AJUSTES y el reino: el
+  `nav` y el grupo de controles ahora son zona de arrastre (los botones y pestañas siguen siéndolo
+  de clic).
+- En Ajustes, la tarjeta «Archivos del cliente» quedaba aplastada y con el título desplazado fuera
+  de su recuadro cuando la ventana era baja; ahora tiene alto mínimo y la página se desplaza.
+
+### Cambiado
+
+- Mensaje de «cliente no instalado» más claro («Hay que descargar 16,6 GB y tienes 194,9 GB libres
+  en este disco»), con aviso y cuánto falta si no hay espacio suficiente.
+- Durante la descarga el resumen del dock dice «Descargando el cliente» (o «Actualizando») en lugar de
+  «Cliente no instalado», y el progreso se muestra como «0,1 GB de 16,6 GB (1 %) · 54,9 MB/s · quedan
+  unos 6 min». Al cancelar o fallar el resumen lo refleja.
+
 ## [0.11.0] - 2026-10-09
 
 Textos legales del cliente (menor: comportamiento nuevo compatible).
