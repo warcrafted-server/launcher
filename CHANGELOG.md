@@ -6,6 +6,10 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.2.0] - 2026-10-09
+
+Interfaz completa en pestañas, verificación rápida y publicación automática de parches.
+
 ### Añadido
 
 - Interfaz en pestañas (Inicio, Noticias, Addons, Ajustes) con barra de ventana propia (arrastrar,

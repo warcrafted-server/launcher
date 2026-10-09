@@ -2,46 +2,25 @@
 
 Propuesta de prioridades, pendiente de revisión del usuario. Deriva de
 [`docs/encargo-original.md`](docs/encargo-original.md). Es la lista viva de lo que falta: al
-completar algo se marca aquí y se anota en el [`CHANGELOG.md`](CHANGELOG.md). El estado técnico
+completar algo se quita de aquí y se anota en el [`CHANGELOG.md`](CHANGELOG.md). El estado técnico
 detallado está en [`docs/ESTADO.md`](docs/ESTADO.md).
 
-Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuario decida.
-
-## Hecho (v0.1.0)
-
-- [x] Manifest firmado (Ed25519), anti-rollback, archivos fragmentados y addons `.tar`
-- [x] Verificación de integridad SHA-256, descarga con reintentos/reanudación, extracción segura y
-      aplicación atómica con rollback
-- [x] Comandos `check_client_status`, `update_client` (progreso) y `launch_game`
-- [x] Bloqueo de juego si falta o falla un archivo obligatorio (invariante en el backend)
-- [x] Reparación de archivos dañados (es la misma ruta que actualizar)
-- [x] Descarga del cliente completo desde cero (probado de extremo a extremo en Linux, 44/44)
-- [x] `realmlist.wtf` gestionado como archivo del manifest
-- [x] Publicación automática de parches y addon desde `acore-sod` (`scripts/publicar-parches.sh`)
-- [x] Primera pantalla funcional, CHANGELOG, versionado SemVer y scripts de preparación del entorno
+Leyenda: **(decisión)** requiere que el usuario decida.
 
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
 
-- [x] Ruta del cliente configurable y persistente (selector de carpeta, guardada en ajustes)
-- [x] Build 12340 garantizado por la integridad: el hash de `Wow.exe` está en el manifest
 - [ ] Buscar en el disco instalaciones existentes de WoW 3.3.5a (por ejemplo, carpetas con `Wow.exe`
       del build 12340) y proponerlas al elegir carpeta
 - [ ] Espacio libre en disco comprobado antes de descargar y aviso del tamaño (~18,5 GB)
 - [ ] Progreso de descarga en bytes, con velocidad y tiempo restante (la verificación ya muestra
       bytes; la descarga aún va por archivos)
-- [x] Verificación rápida con caché de tamaño y fecha
-- [x] Cancelar la comprobación y la actualización desde la UI (la actualización se detiene entre
-      archivos)
 - [ ] Cancelar también a mitad de un archivo grande y reanudarlo después; mensajes claros ante
       fallos de red
-- [x] Instalación nueva: crear la carpeta del cliente desde el launcher
 - [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero
       al volver a abrir el launcher) y limpiar carpetas temporales huérfanas
-- [x] Opción de borrar caché
 - [ ] Logging a archivo, útil para soporte
 - [ ] Probar el recorrido completo en Windows: descarga, reparación, `Wow.exe` arrancando con los
       parches y addon aplicados
-- [x] Quitar el comando `greet` sobrante del scaffold
 
 ## Prioridad 2 — producto distribuible
 
@@ -56,8 +35,6 @@ Leyenda: `[x]` hecho · `[ ]` pendiente · **(decisión)** requiere que el usuar
 
 ## Prioridad 3 — experiencia y contenido
 
-- [x] Navegación: Inicio, Noticias, Addons, Ajustes
-- [x] Noticias en la UI (destacada, índice, lector) con contenido de ejemplo
 - [ ] Noticias remotas: `noticias.json` firmado publicado como el manifest, en lugar del ejemplo
 - [ ] Enlaces oficiales (web, foro, base de datos), ampliables sin recompilar
 - [ ] Addons opcionales: descubrir, instalar y actualizar, separados de los obligatorios en datos y
