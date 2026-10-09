@@ -32,7 +32,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 
 ## Pasos
 
-### [ ] 1. CI de tests en GitHub Actions — 0.2.2 (parche: interno)
+### [x] 1. CI (hecho; falta verificar que pase en GitHub tras el push aprobado) de tests en GitHub Actions — 0.2.2 (parche: interno)
 - Archivos: `.github/workflows/ci.yml`.
 - En push a `main` y PR: job `ubuntu-latest` (deps de sistema de Tauri, `npm ci`, `npm run build`,
   `cargo test` en `src-tauri`, `python3 -m unittest docs/contenido/test_publicar_parches.py`) y job

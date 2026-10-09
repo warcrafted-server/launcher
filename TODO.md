@@ -29,7 +29,7 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 - [ ] Instalador de Windows (MSI/NSIS) con WebView2 incluido o bootstrapper
 - [ ] Autoactualización del propio launcher (updater de Tauri con firma propia)
-- [ ] CI/CD en GitHub Actions: build, tests y publicación de releases por tag `vX.Y.Z`
+- [ ] Publicación de releases por tag `vX.Y.Z` con GitHub Actions (los tests ya corren en CI)
 - [ ] **(decisión)** Firma de código de Windows: sin ella SmartScreen avisará al instalar
 - [ ] **(decisión)** Clave de firma del manifest en más equipos (hoy solo en el Debian de casa)
 - [ ] Mover el origen de descarga si GitHub se queda corto (límites de ancho de banda no medidos

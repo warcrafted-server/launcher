@@ -6,6 +6,16 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.2.2] - 2026-10-09
+
+Cambio interno (parche): tests automáticos en CI.
+
+### Cambiado
+
+- Tests automáticos en GitHub Actions (`.github/workflows/ci.yml`): en push a `main` y en PR,
+  Linux (`npm run build`, `cargo test`, tests de publicación de parches) y Windows (`npm run build`,
+  `cargo build`, `cargo test`).
+
 ## [0.2.1] - 2026-10-09
 
 Licencia y avisos de terceros; sin cambios de comportamiento.
