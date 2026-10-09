@@ -1,3 +1,4 @@
+mod client_detect;
 mod disk_space;
 mod download_progress;
 mod settings;
@@ -17,6 +18,8 @@ pub fn run() {
             ui_commands::set_client_dir,
             ui_commands::create_install_dir,
             ui_commands::clear_cache,
+            ui_commands::detect_clients,
+            ui_commands::check_client_folder,
             ui_commands::cancel_operation,
             ui_commands::check_client_status,
             ui_commands::update_client,

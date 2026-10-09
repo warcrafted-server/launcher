@@ -12,8 +12,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
 
-- [ ] Buscar en el disco instalaciones existentes de WoW 3.3.5a (por ejemplo, carpetas con `Wow.exe`
-      del build 12340) y proponerlas al elegir carpeta
 - [ ] Mensajes claros ante fallos de red durante la descarga
 - [ ] Logging a archivo, útil para soporte
 - [ ] Probar el recorrido completo en Windows: descarga, reparación, `Wow.exe` arrancando con los

@@ -6,6 +6,21 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.8.0] - 2026-10-09
+
+Detección de clientes instalados y validación de la versión (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Módulo `client_detect`: lee la versión de `Wow.exe` (`VS_FIXEDFILEINFO`, sin dependencias) y exige
+  3.3.5.12340; comprobado con tres `Wow.exe` reales (3.3.5.12340).
+- Búsqueda de instalaciones existentes (raíz de unidades y un nivel, Program Files, `Games`,
+  escritorio y documentos) con límite de profundidad y de tiempo, cancelable y sin seguir
+  enlaces simbólicos. Comandos `detect_clients` y `check_client_folder`.
+- Botón «Buscar instalaciones» en el asistente y en Ajustes, con la lista de candidatos y su
+  validez.
+- Al elegir una carpeta cuyo `Wow.exe` no es 3.3.5.12340, aviso claro y confirmación antes de guardar.
+
 ## [0.7.0] - 2026-10-09
 
 Reanudación de descargas entre ejecuciones (menor: funcionalidad nueva compatible).

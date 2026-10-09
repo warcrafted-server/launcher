@@ -4,7 +4,7 @@ import { checkLauncherUpdate } from "./updater";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { initializeContentUI, updateContentClientState as updateContentUiState } from "./news";
+import { initializeContentUI, updateContentClientState as updateContentUiState, type DetectedClient } from "./news";
 
 type ClientFileState = "ok" | "missing" | "corrupt" | "error";
 type FileRole = "required" | "optional";
@@ -54,12 +54,21 @@ interface LauncherSettings {
   clientDir: string | null;
 }
 
+interface ClientFolderCheck {
+  hasWowExe: boolean;
+  version: string | null;
+  valid: boolean;
+}
+
 initializeContentUI({
   chooseFolder: () => void chooseClientFolder(),
   newInstall: () => void createNewInstall(),
   fullCheck: () => void checkClient(true),
   clearCache: () => void clearCache(),
   openExternal: (url) => void openUrl(url),
+  detectClients: () => detectInstalledClients(),
+  useClientFolder: (path) => useClientFolder(path),
+  cancelDetection: () => void cancelCurrentOperation(),
 });
 
 const logo = requiredElement<HTMLImageElement>("#brand-logo");
@@ -97,6 +106,7 @@ let isUpdating = false;
 let isLaunching = false;
 let isClearingCache = false;
 let isPreparingInstall = false;
+let isDetecting = false;
 let isCanceling = false;
 let isLoadingSettings = true;
 let isGameRunning = false;
@@ -134,12 +144,20 @@ function requiredElement<T extends HTMLElement>(selector: string): T {
 }
 
 function isBusy(): boolean {
-  return isLoadingSettings || isChecking || isUpdating || isLaunching || isClearingCache || isPreparingInstall;
+  return (
+    isLoadingSettings ||
+    isChecking ||
+    isUpdating ||
+    isLaunching ||
+    isClearingCache ||
+    isPreparingInstall ||
+    isDetecting
+  );
 }
 
 function refreshButtons(): void {
   const busy = isBusy();
-  const canCancel = isChecking || isUpdating || isLaunching;
+  const canCancel = isChecking || isUpdating || isLaunching || isDetecting;
   const hasClientDirectory = clientDir !== null;
   document.body.classList.toggle("is-busy", busy && !isLoadingSettings);
   chooseFolderButton.disabled = busy;
@@ -271,20 +289,69 @@ async function chooseClientFolder(): Promise<void> {
     });
     if (selectedPath === null) return;
 
-    const savedPath = await invoke<string>("set_client_dir", { path: selectedPath });
-    clientDir = savedPath;
-    clientInstalled = null;
-    hasCheckedClient = false;
-    clientFiles = [];
-    renderClientDirectory();
-    renderFiles("Comprueba el estado para ver los archivos del cliente.");
-    showHealthyFiles.checked = false;
-    setSummary("Sin comprobar", "idle", "○");
-    hideProgressMeter();
-    showMessage("La carpeta del cliente se ha guardado.", "success");
-    refreshButtons();
+    await saveClientFolder(selectedPath);
   } catch (error: unknown) {
     showMessage(`No se pudo elegir la carpeta del cliente: ${errorMessage(error)}`, "error");
+  }
+}
+
+// Guarda la carpeta indicada, avisando antes si el cliente no es el 3.3.5a (12340).
+async function saveClientFolder(selectedPath: string): Promise<void> {
+  const check = await invoke<ClientFolderCheck>("check_client_folder", { path: selectedPath });
+  if (check.hasWowExe && !check.valid) {
+    const confirmed = await ask(describeIncompatibleClient(check), {
+      title: "Cliente no compatible",
+      kind: "warning",
+    });
+    if (!confirmed) return;
+  }
+
+  const savedPath = await invoke<string>("set_client_dir", { path: selectedPath });
+  clientDir = savedPath;
+  clientInstalled = null;
+  hasCheckedClient = false;
+  clientFiles = [];
+  renderClientDirectory();
+  renderFiles("Comprueba el estado para ver los archivos del cliente.");
+  showHealthyFiles.checked = false;
+  setSummary("Sin comprobar", "idle", "○");
+  hideProgressMeter();
+  showMessage("La carpeta del cliente se ha guardado.", "success");
+  refreshButtons();
+}
+
+function describeIncompatibleClient(check: ClientFolderCheck): string {
+  if (check.version === null) {
+    return "Esta carpeta contiene un Wow.exe cuya versión no se ha podido leer; WarCrafted necesita el cliente 3.3.5a (12340). ¿Usar esta carpeta de todos modos?";
+  }
+  return `Esta carpeta contiene un cliente ${check.version}, no el 3.3.5a (12340) que necesita WarCrafted. ¿Usar esta carpeta de todos modos?`;
+}
+
+async function useClientFolder(path: string): Promise<void> {
+  if (isBusy()) return;
+  clearMessage();
+  try {
+    await saveClientFolder(path);
+  } catch (error: unknown) {
+    showMessage(`No se pudo usar esa carpeta: ${errorMessage(error)}`, "error");
+  }
+}
+
+// Busca instalaciones de WoW en el disco. Devuelve lo encontrado (posiblemente parcial si se cancela).
+async function detectInstalledClients(): Promise<DetectedClient[]> {
+  if (isBusy()) return [];
+  clearMessage();
+  isDetecting = true;
+  refreshButtons();
+  try {
+    return await invoke<DetectedClient[]>("detect_clients");
+  } catch (error: unknown) {
+    showMessage(`No se pudo buscar instalaciones: ${errorMessage(error)}`, "error");
+    return [];
+  } finally {
+    isDetecting = false;
+    isCanceling = false;
+    refreshButtons();
   }
 }
 
@@ -633,7 +700,7 @@ function setProgressStatus(message: string): void {
 }
 
 async function cancelCurrentOperation(): Promise<void> {
-  if (isCanceling || !(isChecking || isUpdating || isLaunching)) return;
+  if (isCanceling || !(isChecking || isUpdating || isLaunching || isDetecting)) return;
 
   isCanceling = true;
   refreshButtons();

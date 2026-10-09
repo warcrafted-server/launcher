@@ -11,7 +11,7 @@ use ed25519_dalek::VerifyingKey;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{disk_space, download_progress::DownloadProgress, settings};
+use crate::{client_detect, disk_space, download_progress::DownloadProgress, settings};
 use crate::update_engine::{
     integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
@@ -288,6 +288,21 @@ fn display_path(path: &Path) -> String {
 pub(crate) fn clear_cache(app: AppHandle) -> Result<(), String> {
     let client_dir = configured_client_dir(&app)?;
     clear_cache_for_client(&client_dir)
+}
+
+/// Busca instalaciones de World of Warcraft en las ubicaciones habituales del sistema.
+#[tauri::command]
+pub(crate) async fn detect_clients() -> Result<Vec<client_detect::DetectedClient>, String> {
+    CANCEL_OPERATION.store(false, Ordering::Relaxed);
+    tokio::task::spawn_blocking(|| client_detect::detect_clients(&CANCEL_OPERATION))
+        .await
+        .map_err(|error| format!("No se pudo completar la búsqueda de clientes instalados: {error}"))
+}
+
+/// Comprueba una carpeta concreta como posible cliente (informativo; no bloquea ni guarda nada).
+#[tauri::command]
+pub(crate) fn check_client_folder(path: String) -> client_detect::ClientFolderCheck {
+    client_detect::inspect_client_folder(Path::new(&path))
 }
 
 #[tauri::command]

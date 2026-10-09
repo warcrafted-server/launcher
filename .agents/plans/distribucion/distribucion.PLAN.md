@@ -105,7 +105,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: tests con servidor local (cortar, reanudar, hash correcto; `.part` ajeno borrado).
 - Ejecutor: AgentRelay, esfuerzo alto.
 
-### [ ] 8. Detectar clientes instalados y validar 3.3.5a — 0.8.0 (menor)
+### [x] 8. Detectar clientes instalados y validar 3.3.5a — 0.8.0 (menor)
 - Archivos: nuevo `src-tauri/src/client_detect.rs`, `ui_commands.rs`, UI (asistente y Ajustes).
 - Versión: leer `VS_FIXEDFILEINFO` de `Wow.exe` (buscar la firma `0xFEEF04BD` y leer
   `dwFileVersionMS/LS`) y exigir 3.3.5.12340; sin dependencias nuevas. Detección: carpetas

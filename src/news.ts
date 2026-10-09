@@ -38,12 +38,21 @@ export interface NewsContent {
   links: OfficialLink[];
 }
 
+export interface DetectedClient {
+  path: string;
+  version: string | null;
+  valid: boolean;
+}
+
 export interface ContentActions {
   chooseFolder(): void;
   newInstall(): void;
   fullCheck(): void;
   clearCache(): void;
   openExternal(url: string): void;
+  detectClients(): Promise<DetectedClient[]>;
+  useClientFolder(path: string): Promise<void>;
+  cancelDetection(): void;
 }
 
 export interface ContentClientState {
@@ -204,7 +213,9 @@ function createHomePanel(actions: ContentActions): HTMLElement {
   const existing = button("button button-secondary", "Ya tengo el cliente", actions.chooseFolder);
   existing.append(createThemedIcon("folder"));
   options.append(install, existing);
-  wizard.append(wizardCopy, options);
+  const wizardSearch = createClientSearch(actions);
+  wizardSearch.classList.add("wizard-search");
+  wizard.append(wizardCopy, options, wizardSearch);
 
   const dashboard = element("div", "home-dashboard");
   dashboard.id = "home-dashboard";
@@ -373,7 +384,7 @@ function createSettingsPanel(actions: ContentActions): HTMLElement {
   fileList.setAttribute("aria-live", "polite");
   fileList.append(emptyListItem("Comprueba el estado para ver los archivos del cliente."));
   files.append(fileHeading, fileList);
-  settings.append(folder, maintenance, summary, files);
+  settings.append(folder, createClientSearch(actions), maintenance, summary, files);
   panel.append(settings);
   return panel;
 }
@@ -618,6 +629,77 @@ function sortedNews(): NewsArticle[] {
 function formatDate(date: string): string {
   return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })
     .format(new Date(`${date}T12:00:00Z`));
+}
+
+// Componente reutilizable para buscar clientes instalados; se usa en el asistente y en Ajustes.
+function createClientSearch(actions: ContentActions): HTMLElement {
+  const container = element("section", "client-search panel");
+  container.append(eyebrow("BÚSQUEDA AUTOMÁTICA"), heading("h2", "Instalaciones encontradas"));
+  const status = paragraph(
+    "Pulsa «Buscar instalaciones» para rastrear el disco en busca del cliente.",
+    "client-search-status",
+  );
+  const results = element("ul", "client-candidate-list");
+  results.hidden = true;
+  const search = button("button button-secondary", "Buscar instalaciones", () => void runSearch());
+  const cancel = button("button button-secondary", "Cancelar", actions.cancelDetection);
+  cancel.hidden = true;
+  const controls = element("div", "client-search-actions");
+  controls.append(search, cancel);
+  container.append(controls, status, results);
+
+  async function runSearch(): Promise<void> {
+    search.disabled = true;
+    search.textContent = "Buscando…";
+    cancel.hidden = false;
+    results.hidden = true;
+    results.replaceChildren();
+    status.textContent = "Buscando instalaciones de World of Warcraft en las carpetas habituales…";
+    try {
+      renderClients(await actions.detectClients());
+    } finally {
+      search.disabled = false;
+      search.textContent = "Buscar instalaciones";
+      cancel.hidden = true;
+    }
+  }
+
+  function renderClients(clients: DetectedClient[]): void {
+    results.replaceChildren();
+    if (clients.length === 0) {
+      status.textContent =
+        "No se encontró ninguna instalación de World of Warcraft. Puedes elegir la carpeta a mano.";
+      return;
+    }
+    status.textContent =
+      clients.length === 1
+        ? "Se encontró 1 instalación."
+        : `Se encontraron ${clients.length} instalaciones.`;
+    for (const client of clients) results.append(createCandidateRow(client, actions));
+    results.hidden = false;
+  }
+
+  return container;
+}
+
+function createCandidateRow(client: DetectedClient, actions: ContentActions): HTMLLIElement {
+  const row = element("li", "client-candidate");
+  row.dataset.valid = String(client.valid);
+  const details = element("div", "candidate-details");
+  const path = element("span", "candidate-path", client.path);
+  path.title = client.path;
+  const version = element(
+    "span",
+    "candidate-version",
+    client.version === null ? "Versión del cliente desconocida" : `Cliente ${client.version}`,
+  );
+  details.append(path, version);
+  const badge = element("span", "candidate-badge", client.valid ? "Compatible" : "No compatible");
+  const use = button("button button-secondary", "Usar esta carpeta", () =>
+    void actions.useClientFolder(client.path),
+  );
+  row.append(details, badge, use);
+  return row;
 }
 
 function createPanel(name: string, active = false): HTMLElement {
