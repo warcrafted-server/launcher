@@ -80,7 +80,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: un tag aprobado produce la release y una instalación anterior se autoactualiza.
 - Ejecutor: AgentRelay, esfuerzo alto.
 
-### [ ] 5. Espacio en disco — 0.5.0 (menor)
+### [x] 5. Espacio en disco — 0.5.0 (menor)
 - Orquestador: `cargo add fs4` (o equivalente; verificar licencia y que funcione en Windows).
 - Archivos: `ui_commands.rs` (antes de descargar: suma de `sizeBytes` pendientes + margen del 10 %
   para staging frente al espacio libre del volumen del cliente; error claro con GB necesarios y

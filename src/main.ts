@@ -21,6 +21,8 @@ interface ClientFileStatus {
 interface ClientStatusResponse {
   files: ClientFileStatus[];
   installed: boolean;
+  pendingBytes: number;
+  freeBytes: number | null;
 }
 
 interface UpdateProgressPayload {
@@ -62,6 +64,7 @@ const chooseFolderButton = requiredElement<HTMLButtonElement>("#choose-folder-bu
 const newInstallButton = requiredElement<HTMLButtonElement>("#new-install-button");
 const cancelButton = requiredElement<HTMLButtonElement>("#cancel-button");
 const clientLocation = requiredElement<HTMLParagraphElement>("#client-location");
+const clientDiskSpace = requiredElement<HTMLParagraphElement>("#client-disk-space");
 const clientFolderHelp = requiredElement<HTMLParagraphElement>("#client-folder-help");
 const operationMessage = requiredElement<HTMLDivElement>("#operation-message");
 const progressMeter = requiredElement<HTMLDivElement>("#progress-meter");
@@ -321,12 +324,31 @@ async function createNewInstall(): Promise<void> {
   if (shouldCheck) await checkClient();
 }
 
+function formatGiB(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} GB`;
+}
+
+async function refreshDiskSpace(): Promise<void> {
+  if (clientDir === null) {
+    clientDiskSpace.hidden = true;
+    return;
+  }
+  try {
+    const space = await invoke<{ freeBytes: number }>("get_disk_space");
+    clientDiskSpace.textContent = `Espacio libre en ese disco: ${formatGiB(space.freeBytes)}.`;
+    clientDiskSpace.hidden = false;
+  } catch {
+    clientDiskSpace.hidden = true;
+  }
+}
+
 function renderClientDirectory(): void {
   clientLocation.textContent = clientDir ?? "Ninguna carpeta elegida";
   clientLocation.title = clientDir ?? "";
   clientLocation.classList.toggle("is-empty", clientDir === null);
   chooseFolderButton.textContent = clientDir ? "Cambiar…" : "Elegir carpeta…";
   clientFolderHelp.hidden = clientDir !== null;
+  void refreshDiskSpace();
   syncContentClientState();
 }
 
@@ -394,13 +416,16 @@ async function checkClient(full = false): Promise<void> {
     showHealthyFiles.checked = attentionCount === 0;
     renderFiles();
     if (!status.installed) {
-      setSummary("Cliente no instalado", "warning", "!", "Se descargará el cliente completo (unos 18,5 GB)");
-      showMessage("El cliente no está instalado. Se descargará completo (unos 18,5 GB).", "info");
+      const need = formatGiB(status.pendingBytes);
+      const free = status.freeBytes === null ? "" : ` · Libre: ${formatGiB(status.freeBytes)}`;
+      setSummary("Cliente no instalado", "warning", "!", `Se descargarán ${need}${free}`);
+      showMessage(`El cliente no está instalado. Se descargará completo (${need}${free}).`, "info");
     } else {
       const summary = attentionCount === 0
         ? "Cliente listo para jugar"
         : `${attentionCount} ${attentionCount === 1 ? "archivo requiere" : "archivos requieren"} atención`;
-      setSummary(summary, attentionCount === 0 ? "ok" : "warning", attentionCount === 0 ? "✓" : "!");
+      const pending = status.pendingBytes > 0 ? `Pendiente de descargar: ${formatGiB(status.pendingBytes)}` : undefined;
+      setSummary(summary, attentionCount === 0 ? "ok" : "warning", attentionCount === 0 ? "✓" : "!", pending);
       showMessage(
         attentionCount === 0
           ? "Todos los archivos obligatorios están en buen estado."

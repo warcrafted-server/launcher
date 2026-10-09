@@ -6,6 +6,18 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.5.0] - 2026-10-09
+
+Comprobación de espacio en disco (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Antes de descargar, se compara lo pendiente más un 10 % de margen para el staging con el espacio
+  libre del volumen del cliente; si no cabe, error claro con los GB necesarios y libres.
+- Comando `get_disk_space`; el estado del cliente muestra lo pendiente y el espacio libre, y
+  Ajustes muestra el espacio libre del disco de la carpeta elegida.
+- Dependencia `fs4` (MIT OR Apache-2.0).
+
 ## [0.4.1] - 2026-10-09
 
 Workflow de release (parche: infraestructura de publicación, sin cambios en la aplicación).

@@ -11,7 +11,7 @@ use ed25519_dalek::VerifyingKey;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::settings;
+use crate::{disk_space, settings};
 use crate::update_engine::{
     integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
@@ -121,6 +121,14 @@ pub(crate) struct SettingsResponse {
 pub(crate) struct ClientStatusResponse {
     files: Vec<ClientFileStatus>,
     installed: bool,
+    pending_bytes: u64,
+    free_bytes: Option<u64>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DiskSpaceResponse {
+    free_bytes: u64,
 }
 
 struct ClientSnapshot {
@@ -232,6 +240,7 @@ pub(crate) async fn check_client_status(
         VerifyMode::Quick
     };
     let snapshot = load_client_snapshot(&app, &client_dir, mode).await?;
+    let pending_bytes = pending_required_bytes(&snapshot.manifest, &snapshot.report);
     let files = snapshot
         .manifest
         .files
@@ -244,7 +253,12 @@ pub(crate) async fn check_client_status(
     if CANCEL_OPERATION.load(Ordering::Relaxed) {
         return Err("Operación cancelada.".into());
     }
-    Ok(ClientStatusResponse { files, installed })
+    Ok(ClientStatusResponse {
+        files,
+        installed,
+        pending_bytes,
+        free_bytes: disk_space::free_bytes(&client_dir).ok(),
+    })
 }
 
 #[tauri::command]
@@ -269,6 +283,9 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     if pending.is_empty() {
         return Ok(());
     }
+
+    let pending_bytes = pending.iter().fold(0u64, |sum, file| sum.saturating_add(file.size_bytes));
+    disk_space::ensure_enough(pending_bytes, disk_space::free_bytes(&client_dir)?)?;
 
     let install_root = prepare_install_root(&client_dir)?;
     let staging_directory = create_staging_directory(&install_root)?;
@@ -329,6 +346,25 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
             failures.join("; ")
         ))
     }
+}
+
+#[tauri::command]
+pub(crate) fn get_disk_space(app: AppHandle) -> Result<DiskSpaceResponse, String> {
+    let client_dir = configured_client_dir(&app)?;
+    Ok(DiskSpaceResponse {
+        free_bytes: disk_space::free_bytes(&client_dir)?,
+    })
+}
+
+fn pending_required_bytes(manifest: &Manifest, report: &[FileVerification]) -> u64 {
+    manifest
+        .files
+        .iter()
+        .zip(report)
+        .filter(|(file, verification)| {
+            file.role == FileRole::Required && verification.status != FileStatus::Valid
+        })
+        .fold(0u64, |sum, (file, _)| sum.saturating_add(file.size_bytes))
 }
 
 #[tauri::command]

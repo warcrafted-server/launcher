@@ -328,7 +328,10 @@ function createSettingsPanel(actions: ContentActions): HTMLElement {
   location.id = "client-location";
   const help = paragraph("El cliente completo ocupa aproximadamente 18,5 GB.", "client-folder-help");
   help.id = "client-folder-help";
-  copy.append(location, help);
+  const diskSpace = paragraph("", "client-folder-help client-disk-space");
+  diskSpace.id = "client-disk-space";
+  diskSpace.hidden = true;
+  copy.append(location, help, diskSpace);
   const folderActions = element("div", "folder-actions");
   folderActions.append(
     button("button button-secondary", "Elegir carpeta…", actions.chooseFolder, "choose-folder-button"),

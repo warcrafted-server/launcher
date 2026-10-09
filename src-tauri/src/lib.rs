@@ -1,3 +1,4 @@
+mod disk_space;
 mod settings;
 mod ui_commands;
 pub mod update_engine;
@@ -19,7 +20,8 @@ pub fn run() {
             ui_commands::check_client_status,
             ui_commands::update_client,
             ui_commands::launch_game,
-            ui_commands::get_game_running
+            ui_commands::get_game_running,
+            ui_commands::get_disk_space
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
