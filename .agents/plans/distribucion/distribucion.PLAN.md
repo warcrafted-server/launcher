@@ -88,7 +88,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: test de la función de decisión (pura) y error visible si no cabe.
 - Ejecutor: AgentRelay, esfuerzo medio.
 
-### [ ] 6. Progreso total de descarga — 0.6.0 (menor)
+### [x] 6. Progreso total de descarga — 0.6.0 (menor)
 - Archivos: `update_engine/staging.rs` (callback de bytes descargados por bloque, sin romper la
   API actual), `ui_commands.rs` (evento `download-progress` limitado a 1 cada 200 ms con bytes
   totales hechos/total, velocidad media de los últimos 5 s y ETA), UI (barra global con

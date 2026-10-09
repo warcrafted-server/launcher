@@ -1,4 +1,5 @@
 mod disk_space;
+mod download_progress;
 mod settings;
 mod ui_commands;
 pub mod update_engine;

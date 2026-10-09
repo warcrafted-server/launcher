@@ -11,7 +11,7 @@ use ed25519_dalek::VerifyingKey;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{disk_space, settings};
+use crate::{disk_space, download_progress::DownloadProgress, settings};
 use crate::update_engine::{
     integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
@@ -31,6 +31,8 @@ const MANIFEST_KEY_ID: &str = "warcrafted-manifest-2026";
 const ALLOWED_SOURCE_HOSTS: &[&str] = &["raw.githubusercontent.com", "github.com"];
 const STAGING_DIRECTORY: &str = ".warcrafted-staging";
 const GAME_EXECUTABLE: &str = "Wow.exe";
+/// Cadencia mínima entre eventos `download-progress`; el último de cada archivo siempre se emite.
+const DOWNLOAD_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
 
 static NEXT_STAGING_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 static NEXT_BACKUP_FILE: AtomicU64 = AtomicU64::new(0);
@@ -108,6 +110,65 @@ struct VerifyProgressPayload {
     file_bytes_total: u64,
     bytes_done: u64,
     bytes_total: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct DownloadProgressPayload {
+    bytes_done: u64,
+    bytes_total: u64,
+    speed_bytes_per_sec: f64,
+    eta_seconds: Option<u64>,
+}
+
+/// Acumula el progreso de la descarga y emite `download-progress` con una cadencia mínima.
+struct DownloadProgressReporter {
+    app: AppHandle,
+    progress: DownloadProgress,
+    last_emit: Option<Instant>,
+}
+
+impl DownloadProgressReporter {
+    fn new(app: &AppHandle, bytes_total: u64) -> Self {
+        Self {
+            app: app.clone(),
+            progress: DownloadProgress::new(bytes_total),
+            last_emit: None,
+        }
+    }
+
+    /// Registra un bloque descargado y emite si ha vencido la cadencia mínima.
+    fn record(&mut self, bytes: u64) {
+        let now = Instant::now();
+        self.progress.record(bytes, now);
+        self.emit(now, false);
+    }
+
+    /// Fuerza la emisión al terminar un archivo, aunque no haya vencido la cadencia.
+    fn finish_file(&mut self) {
+        self.emit(Instant::now(), true);
+    }
+
+    fn emit(&mut self, now: Instant, force: bool) {
+        let due = self
+            .last_emit
+            .map(|last| now.saturating_duration_since(last) >= DOWNLOAD_PROGRESS_INTERVAL)
+            .unwrap_or(true);
+        if !force && !due {
+            return;
+        }
+        self.last_emit = Some(now);
+        let snapshot = self.progress.snapshot(now);
+        let _ = self.app.emit(
+            "download-progress",
+            DownloadProgressPayload {
+                bytes_done: snapshot.bytes_done,
+                bytes_total: snapshot.bytes_total,
+                speed_bytes_per_sec: snapshot.speed_bytes_per_sec,
+                eta_seconds: snapshot.eta_seconds,
+            },
+        );
+    }
 }
 
 #[derive(Serialize)]
@@ -294,13 +355,21 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         .map_err(|error| format!("no se pudo preparar el cliente HTTP: {error}"))?;
     let total = pending.len();
     let mut failures = Vec::new();
+    let mut download_progress = DownloadProgressReporter::new(&app, pending_bytes);
 
     for (index, file) in pending.iter().enumerate() {
         if CANCEL_OPERATION.load(Ordering::Relaxed) {
             return Err("Operación cancelada.".into());
         }
-        let result =
-            install_manifest_file(&client, file, &install_root, &staging_directory.0).await;
+        let result = install_manifest_file(
+            &client,
+            file,
+            &install_root,
+            &staging_directory.0,
+            &mut |bytes| download_progress.record(bytes),
+        )
+        .await;
+        download_progress.finish_file();
         let (status, message) = match result {
             Ok(()) => {
                 match installed_file_cache_state(&install_root, file) {
@@ -666,10 +735,12 @@ async fn install_manifest_file(
     file: &crate::update_engine::manifest::ManifestFile,
     install_root: &Path,
     staging_root: &Path,
+    on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<(), String> {
-    let staged_path = staging::stage_manifest_file(client, file, staging_root)
-        .await
-        .map_err(|error| error.to_string())?;
+    let staged_path =
+        staging::stage_manifest_file_with_progress(client, file, staging_root, on_bytes)
+            .await
+            .map_err(|error| error.to_string())?;
     let destination =
         resolve_manifest_path(install_root, &file.path).map_err(|error| error.to_string())?;
 

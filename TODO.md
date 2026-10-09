@@ -14,8 +14,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 - [ ] Buscar en el disco instalaciones existentes de WoW 3.3.5a (por ejemplo, carpetas con `Wow.exe`
       del build 12340) y proponerlas al elegir carpeta
-- [ ] Progreso de descarga en bytes, con velocidad y tiempo restante (la verificación ya muestra
-      bytes; la descarga aún va por archivos)
 - [ ] Cancelar también a mitad de un archivo grande y reanudarlo después; mensajes claros ante
       fallos de red
 - [ ] Conservar las descargas parciales entre ejecuciones (hoy un archivo cortado empieza de cero

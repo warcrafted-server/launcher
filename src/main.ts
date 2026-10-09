@@ -43,6 +43,13 @@ interface VerifyProgressPayload {
   bytesTotal: number;
 }
 
+interface DownloadProgressPayload {
+  bytesDone: number;
+  bytesTotal: number;
+  speedBytesPerSec: number;
+  etaSeconds: number | null;
+}
+
 interface LauncherSettings {
   clientDir: string | null;
 }
@@ -93,6 +100,7 @@ let isPreparingInstall = false;
 let isCanceling = false;
 let isLoadingSettings = true;
 let isGameRunning = false;
+let hasDownloadProgress = false;
 let messageTimeout: number | undefined;
 
 logo.src = logoUrl;
@@ -456,6 +464,7 @@ async function checkClient(full = false): Promise<void> {
 async function updateClient(): Promise<void> {
   if (!clientDir || isBusy()) return;
   isUpdating = true;
+  hasDownloadProgress = false;
   refreshButtons();
   clearMessage();
   setProgressStatus("Preparando la actualización…");
@@ -463,6 +472,7 @@ async function updateClient(): Promise<void> {
 
   let stopVerifyListening: (() => void) | undefined;
   let stopUpdateListening: (() => void) | undefined;
+  let stopDownloadListening: (() => void) | undefined;
   try {
     stopVerifyListening = await listen<VerifyProgressPayload>("verify-progress", ({ payload }) => {
       showVerifyProgress(payload);
@@ -470,6 +480,9 @@ async function updateClient(): Promise<void> {
     stopUpdateListening = await listen<UpdateProgressPayload>("update-progress", ({ payload }) => {
       showUpdateProgress(payload);
       updateDisplayedFile(payload);
+    });
+    stopDownloadListening = await listen<DownloadProgressPayload>("download-progress", ({ payload }) => {
+      showDownloadProgress(payload);
     });
 
     await invoke<void>("update_client");
@@ -496,6 +509,7 @@ async function updateClient(): Promise<void> {
       showMessage(`No se pudo completar la actualización: ${message}`, "error");
     }
   } finally {
+    stopDownloadListening?.();
     stopUpdateListening?.();
     stopVerifyListening?.();
     hideProgressMeter();
@@ -576,14 +590,41 @@ function showVerifyProgress(payload: VerifyProgressPayload): void {
 }
 
 function showUpdateProgress(payload: UpdateProgressPayload): void {
+  // Mientras llega el progreso global en bytes, la barra la controla download-progress.
+  if (hasDownloadProgress && payload.status !== "error") return;
   const total = Math.max(payload.total, 1);
   setProgressStatus(`Descargando ${payload.index} de ${payload.total} · ${fileName(payload.path)}`);
   if (payload.status === "error") {
     progressStatus.dataset.kind = "error";
+    hasDownloadProgress = false;
   }
   progressBar.max = total;
   progressBar.value = Math.min(Math.max(payload.index, 0), total);
   progressMeter.hidden = false;
+}
+
+function showDownloadProgress(payload: DownloadProgressPayload): void {
+  hasDownloadProgress = true;
+  const total = Math.max(payload.bytesTotal, 1);
+  progressBar.max = total;
+  progressBar.value = Math.min(Math.max(payload.bytesDone, 0), total);
+  progressMeter.hidden = false;
+  const parts = [`${formatGiB(payload.bytesDone)} de ${formatGiB(payload.bytesTotal)}`];
+  if (payload.speedBytesPerSec > 0) parts.push(formatSpeed(payload.speedBytesPerSec));
+  if (payload.etaSeconds !== null) parts.push(formatEta(payload.etaSeconds));
+  setProgressStatus(parts.join(" · "));
+}
+
+function formatSpeed(bytesPerSecond: number): string {
+  if (bytesPerSecond >= 1024 ** 2) {
+    return `${(bytesPerSecond / 1024 ** 2).toLocaleString("es-ES", { maximumFractionDigits: 1 })} MB/s`;
+  }
+  return `${Math.max(1, Math.round(bytesPerSecond / 1024)).toLocaleString("es-ES")} KB/s`;
+}
+
+function formatEta(seconds: number): string {
+  if (seconds < 60) return `${seconds} s`;
+  return `${Math.ceil(seconds / 60).toLocaleString("es-ES")} min`;
 }
 
 function setProgressStatus(message: string): void {

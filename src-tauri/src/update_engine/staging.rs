@@ -128,6 +128,19 @@ pub async fn stage_manifest_file(
     manifest_file: &ManifestFile,
     staging_root: &Path,
 ) -> Result<PathBuf, StagingError> {
+    stage_manifest_file_with_progress(client, manifest_file, staging_root, &mut |_: u64| {}).await
+}
+
+/// Igual que [`stage_manifest_file`], informando de los bytes de cada bloque descargado.
+///
+/// `on_bytes` recibe la longitud de cada bloque escrito, también al descargar los fragmentos
+/// de un archivo ensamblado. Las funciones existentes siguen usando [`stage_manifest_file`].
+pub async fn stage_manifest_file_with_progress(
+    client: &Client,
+    manifest_file: &ManifestFile,
+    staging_root: &Path,
+    on_bytes: &mut (dyn FnMut(u64) + Send),
+) -> Result<PathBuf, StagingError> {
     fs::create_dir_all(staging_root)
         .await
         .map_err(StagingError::Filesystem)?;
@@ -151,6 +164,7 @@ pub async fn stage_manifest_file(
                 &manifest_file.path,
                 manifest_file.size_bytes,
                 &manifest_file.sha256,
+                on_bytes,
             )
             .await?;
         }
@@ -174,6 +188,7 @@ pub async fn stage_manifest_file(
                     &format!("{} (fragmento {})", manifest_file.path, index + 1),
                     part.size_bytes,
                     &part.sha256,
+                    on_bytes,
                 )
                 .await?;
                 parts.push(part_path);
@@ -546,6 +561,7 @@ async fn download_verified(
     display_path: &str,
     expected_size: u64,
     expected_hash: &str,
+    on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<(), StagingError> {
     let partial_path = sidecar_path(destination, "download");
     ensure_safe_file_path(staging_root, &partial_path)
@@ -553,7 +569,16 @@ async fn download_verified(
         .map_err(map_path_error)?;
 
     for attempt in 0..MAX_DOWNLOAD_ATTEMPTS {
-        match download_attempt(client, source, &partial_path, display_path, expected_size).await {
+        match download_attempt(
+            client,
+            source,
+            &partial_path,
+            display_path,
+            expected_size,
+            on_bytes,
+        )
+        .await
+        {
             Ok(()) => {
                 let actual = hash_file(&partial_path).await?;
                 if !actual.eq_ignore_ascii_case(expected_hash) {
@@ -583,6 +608,7 @@ async fn download_attempt(
     partial_path: &Path,
     display_path: &str,
     expected_size: u64,
+    on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<(), StagingError> {
     let mut offset = match fs::metadata(partial_path).await {
         Ok(metadata) if metadata.is_file() => metadata.len(),
@@ -642,11 +668,13 @@ async fn download_attempt(
                 actual: next_total,
             });
         }
+        let chunk_len = chunk.len() as u64;
         output
             .write_all(&chunk)
             .await
             .map_err(StagingError::Filesystem)?;
         total = next_total;
+        on_bytes(chunk_len);
     }
     output.flush().await.map_err(StagingError::Filesystem)?;
     output.sync_all().await.map_err(StagingError::Filesystem)?;

@@ -6,6 +6,18 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.6.0] - 2026-10-09
+
+Progreso total de descarga (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Evento `download-progress` (máximo cada 200 ms) con bytes hechos y totales, velocidad media de los
+  últimos 5 s y tiempo restante; la barra del dock muestra «4,2 GB de 18,5 GB · 12 MB/s · 20 min».
+- `update_engine::staging::stage_manifest_file_with_progress`, con callback de bytes por bloque
+  (también para los fragmentos de archivos ensamblados); la API anterior no cambia.
+- Módulo `download_progress` con el cálculo de velocidad y ETA, con tests.
+
 ## [0.5.0] - 2026-10-09
 
 Comprobación de espacio en disco (menor: funcionalidad nueva compatible).
