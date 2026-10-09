@@ -1,6 +1,7 @@
 mod client_detect;
 mod disk_space;
 mod download_progress;
+mod game_config;
 mod optional_addons;
 mod settings;
 mod ui_commands;

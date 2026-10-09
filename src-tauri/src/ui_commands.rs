@@ -11,7 +11,7 @@ use ed25519_dalek::VerifyingKey;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
-use crate::{client_detect, disk_space, download_progress::DownloadProgress, settings};
+use crate::{client_detect, disk_space, download_progress::DownloadProgress, game_config, settings};
 use crate::update_engine::{
     integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
@@ -364,6 +364,19 @@ pub(crate) async fn check_client_status(
     })
 }
 
+/// Marca los textos legales como aceptados en `<cliente>/WTF/Config.wtf`.
+///
+/// Es «best effort»: el jugador debe poder lanzar el juego y actualizar aunque esto falle, así
+/// que cualquier error solo se registra y no interrumpe la operación en curso.
+fn mark_legal_prompts_accepted_best_effort(client_dir: &Path) {
+    if let Err(error) = game_config::ensure_legal_prompts_accepted(client_dir) {
+        eprintln!(
+            "No se pudieron marcar los textos legales como aceptados en {}: {error}",
+            client_dir.display()
+        );
+    }
+}
+
 #[tauri::command]
 pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     if GAME_RUNNING.load(Ordering::Acquire) {
@@ -385,6 +398,7 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
         .collect();
 
     if pending.is_empty() {
+        mark_legal_prompts_accepted_best_effort(&client_dir);
         return Ok(());
     }
 
@@ -458,6 +472,7 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     verify_cache::save_cache(&snapshot.cache_directory, &client_dir, &snapshot.cache)?;
 
     if failures.is_empty() {
+        mark_legal_prompts_accepted_best_effort(&client_dir);
         Ok(())
     } else {
         Err(format!(
@@ -755,6 +770,9 @@ pub(crate) async fn launch_game(app: AppHandle) -> Result<(), String> {
     if CANCEL_OPERATION.load(Ordering::Relaxed) {
         return Err("Operación cancelada.".into());
     }
+    // Evita que el cliente muestre los textos legales (EULA, términos de uso) en el primer
+    // arranque. Es «best effort»: si falla, el juego se lanza igual.
+    mark_legal_prompts_accepted_best_effort(&install_root);
     let child = Command::new(&executable_path)
         .current_dir(&install_root)
         .spawn()

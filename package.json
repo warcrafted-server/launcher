@@ -2,7 +2,7 @@
   "name": "warcrafted-launcher",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "version": "0.10.4",
+  "version": "0.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

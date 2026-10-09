@@ -6,6 +6,18 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.11.0] - 2026-10-09
+
+Textos legales del cliente (menor: comportamiento nuevo compatible).
+
+### Añadido
+
+- Antes de lanzar el juego y al terminar una actualización, el launcher asegura en
+  `<cliente>/WTF/Config.wtf` las claves `readEULA`, `readTOS`, `readTerminationWithoutNotice` y
+  `readScanning` a `"1"`, para que el cliente no muestre los textos legales en el primer arranque.
+  Conserva el resto del archivo y sus saltos de línea, escribe de forma atómica y no sigue enlaces
+  simbólicos. Si falla, no impide jugar ni actualizar.
+
 ## [0.10.4] - 2026-10-09
 
 Corrección del workflow de release (parche).
