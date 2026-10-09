@@ -352,6 +352,24 @@ h3 { color: #e8d9b6; font-size: 14px; font-weight: 600; }
 .addon-status { padding: 5px 8px; border: 1px solid rgba(111, 207, 143, 0.28); border-radius: 99px; background: rgba(24, 63, 39, 0.18); color: var(--success); font-size: 10px; white-space: nowrap; }
 .addon-status[data-state="attention"] { border-color: rgba(232, 180, 90, 0.32); background: rgba(95, 66, 26, 0.2); color: var(--warning); }
 .addon-status[data-state="error"] { border-color: rgba(224, 104, 95, 0.3); color: var(--error); }
+.optional-addons-content { display: flex; flex-direction: column; gap: 10px; }
+.optional-note { margin: 0; color: #aeb8c0; font-size: 11px; line-height: 1.6; }
+.optional-addons-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.optional-catalog-meta { color: var(--muted); font-size: 9px; }
+.optional-refresh-button { padding: 5px 11px; font-size: 10px; }
+.optional-state { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.optional-addon-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.optional-addon-row { align-items: flex-start; border-color: rgba(63, 169, 255, 0.16); }
+.optional-label { color: #75b9e9; font-size: 9px; }
+.addon-meta { color: #9fa8b0; font-size: 9px; }
+.addon-description { margin: 2px 0 0; color: #c3bcad; font-size: 10px; line-height: 1.6; }
+.addon-aside { flex: 0 0 auto; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.addon-link { align-self: flex-start; font-size: 10px; }
+.addon-status[data-state="muted"] { border-color: rgba(167, 159, 140, 0.28); background: rgba(20, 22, 26, 0.4); color: var(--muted); }
+.optional-progress { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid rgba(63, 169, 255, 0.2); border-radius: 5px; background: rgba(8, 9, 12, 0.4); }
+.optional-progress-bar { min-width: 0; flex: 1 1 auto; height: 6px; accent-color: #75b9e9; }
+.optional-progress-text { flex: 0 0 auto; color: #c3bcad; font-size: 10px; white-space: nowrap; }
+.optional-cancel-button { flex: 0 0 auto; padding: 4px 10px; font-size: 10px; }
 
 .settings-page { gap: 9px; }
 .settings-page > h1 { margin-bottom: 2px; }

@@ -321,7 +321,10 @@ function createAddonsPanel(): HTMLElement {
 
   const optional = element("section", "addon-section optional-section panel");
   optional.append(eyebrow("A TU ELECCIÓN"), heading("h2", "Opcionales"));
-  optional.append(paragraph("Próximamente podrás instalar addons opcionales desde aquí.", "optional-empty-state"));
+  // El contenido lo monta optional-addons.ts cuando el launcher ya conoce el estado del cliente.
+  const optionalContent = element("div", "optional-addons-content");
+  optionalContent.id = "optional-addons-content";
+  optional.append(optionalContent);
   sections.append(mandatory, optional);
   addons.append(sections);
   panel.append(addons);

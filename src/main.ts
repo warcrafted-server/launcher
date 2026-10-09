@@ -5,6 +5,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ask, open } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { initializeContentUI, updateContentClientState as updateContentUiState, type DetectedClient } from "./news";
+import { initializeOptionalAddons, refreshOptionalAddons } from "./optional-addons";
 
 type ClientFileState = "ok" | "missing" | "corrupt" | "error";
 type FileRole = "required" | "optional";
@@ -107,6 +108,7 @@ let isLaunching = false;
 let isClearingCache = false;
 let isPreparingInstall = false;
 let isDetecting = false;
+let isManagingOptionalAddon = false;
 let isCanceling = false;
 let isLoadingSettings = true;
 let isGameRunning = false;
@@ -131,6 +133,16 @@ window.addEventListener("warcrafted-open-url", (event) => {
   if (event instanceof CustomEvent && typeof event.detail === "string") void openUrl(event.detail);
 });
 
+initializeOptionalAddons(requiredElement<HTMLElement>("#optional-addons-content"), {
+  setAddonOperationActive: (active) => setAddonOperationActive(active),
+  clientState: () => ({
+    hasClientDirectory: clientDir !== null,
+    clientBusy: document.body.classList.contains("is-busy"),
+    gameRunning: isGameRunning,
+  }),
+  notify: (message, kind) => showMessage(message, kind),
+});
+
 void loadSettings();
 void loadGameState();
 void checkLauncherUpdate();
@@ -151,7 +163,8 @@ function isBusy(): boolean {
     isLaunching ||
     isClearingCache ||
     isPreparingInstall ||
-    isDetecting
+    isDetecting ||
+    isManagingOptionalAddon
   );
 }
 
@@ -201,6 +214,13 @@ function refreshButtons(): void {
   cancelButton.hidden = !canCancel;
   cancelButton.disabled = isCanceling;
   cancelButton.textContent = isCanceling ? "Cancelando…" : "Cancelar";
+  refreshOptionalAddons();
+}
+
+function setAddonOperationActive(active: boolean): void {
+  if (isManagingOptionalAddon === active) return;
+  isManagingOptionalAddon = active;
+  refreshButtons();
 }
 
 function setButtonBusy(button: HTMLButtonElement, busy: boolean, busyLabel: string, idleLabel: string): void {

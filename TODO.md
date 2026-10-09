@@ -34,8 +34,7 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 - [ ] Noticias remotas: `noticias.json` firmado publicado como el manifest, en lugar del ejemplo
 - [ ] Enlaces oficiales (web, foro, base de datos), ampliables sin recompilar
-- [ ] Addons opcionales: descubrir, instalar y actualizar, separados de los obligatorios en datos y
-      en UI
+- [ ] Publicar los primeros addons opcionales reales en el catálogo (`docs/contenido/PUBLICAR-ADDONS.md`)
 - [ ] **(decisión)** Identidad visual: logo, paleta, tipografía, artwork (sin copiar a Blizzard);
       revisar la licencia de fuentes e iconos
 - [ ] Animaciones, estados de error cuidados y escalado DPI de Windows

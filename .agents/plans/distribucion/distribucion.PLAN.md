@@ -129,7 +129,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: tests de instalar, actualizar y desinstalar sin tocar otros addons.
 - Ejecutor: AgentRelay, esfuerzo alto.
 
-### [ ] 10. Addons opcionales: UI — 0.10.0 (menor)
+### [x] 10. Addons opcionales: UI — 0.10.0 (menor)
 - Pestaña Addons: catálogo con nombre, autor, versión, licencia, descripción; instalar /
   actualizar / desinstalar con progreso; separado visualmente de los obligatorios.
 - Ejecutor: AgentRelay, esfuerzo medio.

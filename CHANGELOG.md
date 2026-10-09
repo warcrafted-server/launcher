@@ -6,6 +6,20 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.10.0] - 2026-10-09
+
+Addons opcionales: interfaz (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- La sección «Opcionales» de la pestaña Addons carga el catálogo firmado al abrirla y lista cada
+  addon con autor, versión, licencia, descripción y enlace, con Instalar, Actualizar y Desinstalar
+  según su estado, confirmación antes de desinstalar o reemplazar una carpeta existente, progreso
+  con velocidad y tiempo restante, y cancelación.
+- Estados de carga, sin carpeta de cliente, error de catálogo con Reintentar y catálogo vacío. Los
+  textos del catálogo se insertan siempre como texto. Marcados como «Opcional» y distintos de los
+  obligatorios; no influyen en Jugar. Se bloquean con el cliente ocupado o el juego abierto.
+
 ## [0.9.0] - 2026-10-09
 
 Addons opcionales: catálogo y backend (menor: funcionalidad nueva compatible; sin interfaz todavía).
