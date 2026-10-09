@@ -7,7 +7,10 @@ detallado está en [`docs/ESTADO.md`](docs/ESTADO.md).
 
 Leyenda: **(decisión)** requiere que el usuario decida.
 
-Plan de ejecución de distribución, autoactualización y descargas:
+Plan de contenido remoto, carrusel y catálogo de addons (propuesta, pendiente de respuestas del
+usuario): [`.agents/plans/contenido-remoto/contenido-remoto.PLAN.md`](.agents/plans/contenido-remoto/contenido-remoto.PLAN.md).
+
+Plan de ejecución de distribución, autoactualización y descargas (completado):
 [`.agents/plans/distribucion/distribucion.PLAN.md`](.agents/plans/distribucion/distribucion.PLAN.md).
 
 ## Prioridad 1 — que un jugador pueda usarlo de verdad
