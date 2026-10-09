@@ -6,6 +6,20 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.7.0] - 2026-10-09
+
+Reanudación de descargas entre ejecuciones (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Las descargas parciales se conservan en `<cliente>/.warcrafted-staging/downloads/<sha256>.part`
+  (la clave es el hash esperado, así que un `.part` de otra versión nunca se mezcla). Al volver a
+  abrir el launcher, un archivo cortado o cancelado continúa con Range desde donde se quedó; el hash
+  final sigue siendo obligatorio.
+- El progreso global cuenta los bytes ya descargados al reanudar.
+- Al empezar una actualización se borran los `.part` ajenos al manifest pendiente y los
+  directorios `run-*` huérfanos de ejecuciones anteriores.
+
 ## [0.6.0] - 2026-10-09
 
 Progreso total de descarga (menor: funcionalidad nueva compatible).

@@ -134,11 +134,29 @@ pub async fn stage_manifest_file(
 /// Igual que [`stage_manifest_file`], informando de los bytes de cada bloque descargado.
 ///
 /// `on_bytes` recibe la longitud de cada bloque escrito, también al descargar los fragmentos
-/// de un archivo ensamblado. Las funciones existentes siguen usando [`stage_manifest_file`].
+/// de un archivo ensamblado. Las descargas parciales se guardan dentro del propio `staging_root`.
 pub async fn stage_manifest_file_with_progress(
     client: &Client,
     manifest_file: &ManifestFile,
     staging_root: &Path,
+    on_bytes: &mut (dyn FnMut(u64) + Send),
+) -> Result<PathBuf, StagingError> {
+    stage_manifest_file_with_downloads(client, manifest_file, staging_root, staging_root, on_bytes)
+        .await
+}
+
+/// Igual que [`stage_manifest_file_with_progress`], pero con un directorio propio y persistente
+/// para las descargas parciales.
+///
+/// Cada archivo (o fragmento) reanudable se guarda en `downloads_root/<sha256 esperado>.part`, de
+/// modo que una descarga cortada en una ejecución anterior se reanuda con `Range` en la siguiente
+/// y nunca se mezcla con la de otra versión. El hash final sigue siendo obligatorio: un `.part`
+/// cuyo contenido no corresponda se descarta y se vuelve a empezar desde cero.
+pub async fn stage_manifest_file_with_downloads(
+    client: &Client,
+    manifest_file: &ManifestFile,
+    staging_root: &Path,
+    downloads_root: &Path,
     on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<PathBuf, StagingError> {
     fs::create_dir_all(staging_root)
@@ -147,6 +165,7 @@ pub async fn stage_manifest_file_with_progress(
     let staging_root = fs::canonicalize(staging_root)
         .await
         .map_err(StagingError::Filesystem)?;
+    let downloads_root = prepare_downloads_root(downloads_root).await?;
     let target = resolve_manifest_path(&staging_root, &manifest_file.path)
         .map_err(StagingError::Manifest)?;
     ensure_safe_file_path(&staging_root, &target)
@@ -156,10 +175,14 @@ pub async fn stage_manifest_file_with_progress(
     match (&manifest_file.source, &manifest_file.assembly) {
         (Some(source), None) => {
             ensure_source_size(&manifest_file.path, manifest_file.size_bytes, source)?;
+            let partial_path = download_part_path(&downloads_root, &manifest_file.sha256);
+            ensure_safe_file_path(&downloads_root, &partial_path)
+                .await
+                .map_err(map_path_error)?;
             download_verified(
                 client,
-                &staging_root,
                 source,
+                &partial_path,
                 &target,
                 &manifest_file.path,
                 manifest_file.size_bytes,
@@ -180,10 +203,14 @@ pub async fn stage_manifest_file_with_progress(
                 ensure_safe_file_path(&staging_root, &part_path)
                     .await
                     .map_err(map_path_error)?;
+                let partial_path = download_part_path(&downloads_root, &part.sha256);
+                ensure_safe_file_path(&downloads_root, &partial_path)
+                    .await
+                    .map_err(map_path_error)?;
                 download_verified(
                     client,
-                    &staging_root,
                     &part.source,
+                    &partial_path,
                     &part_path,
                     &format!("{} (fragmento {})", manifest_file.path, index + 1),
                     part.size_bytes,
@@ -555,41 +582,40 @@ fn ensure_source_size(path: &str, file_size: u64, source: &FileSource) -> Result
 
 async fn download_verified(
     client: &Client,
-    staging_root: &Path,
     source: &FileSource,
+    partial_path: &Path,
     destination: &Path,
     display_path: &str,
     expected_size: u64,
     expected_hash: &str,
     on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<(), StagingError> {
-    let partial_path = sidecar_path(destination, "download");
-    ensure_safe_file_path(staging_root, &partial_path)
-        .await
-        .map_err(map_path_error)?;
-
+    // Los bytes ya presentes en el `.part` se informan a `on_bytes` una sola vez en toda la
+    // descarga, aunque haya que reintentar, para no contarlos dos veces.
+    let mut offset_reported = false;
     for attempt in 0..MAX_DOWNLOAD_ATTEMPTS {
         match download_attempt(
             client,
             source,
-            &partial_path,
+            partial_path,
             display_path,
             expected_size,
             on_bytes,
+            &mut offset_reported,
         )
         .await
         {
             Ok(()) => {
-                let actual = hash_file(&partial_path).await?;
+                let actual = hash_file(partial_path).await?;
                 if !actual.eq_ignore_ascii_case(expected_hash) {
-                    let _ = fs::remove_file(&partial_path).await;
+                    let _ = fs::remove_file(partial_path).await;
                     return Err(StagingError::HashMismatch {
                         path: display_path.to_owned(),
                         expected: expected_hash.to_owned(),
                         actual,
                     });
                 }
-                promote_file(&partial_path, destination).await?;
+                promote_file(partial_path, destination).await?;
                 return Ok(());
             }
             Err(error) if error.is_retryable() && attempt + 1 < MAX_DOWNLOAD_ATTEMPTS => {
@@ -609,6 +635,7 @@ async fn download_attempt(
     display_path: &str,
     expected_size: u64,
     on_bytes: &mut (dyn FnMut(u64) + Send),
+    offset_reported: &mut bool,
 ) -> Result<(), StagingError> {
     let mut offset = match fs::metadata(partial_path).await {
         Ok(metadata) if metadata.is_file() => metadata.len(),
@@ -637,6 +664,16 @@ async fn download_attempt(
         offset = 0;
     } else if status != StatusCode::OK {
         return Err(StagingError::HttpStatus(status.as_u16()));
+    }
+
+    // A partir de aquí vamos a escribir: los bytes que ya estaban en el `.part` son progreso real
+    // (se acaban de reanudar), pero solo se informan una vez por descarga. Si el intento falla más
+    // adelante, el siguiente reanudará y no volverá a contarlos.
+    if !*offset_reported {
+        *offset_reported = true;
+        if offset > 0 {
+            on_bytes(offset);
+        }
     }
 
     let mut output = OpenOptions::new()
@@ -829,6 +866,34 @@ fn sidecar_path(path: &Path, suffix: &str) -> PathBuf {
     path.with_file_name(sidecar_name)
 }
 
+/// Ruta del `.part` reanudable de un archivo o fragmento, con su hash esperado como clave.
+///
+/// El hash (y no el nombre del archivo) es lo que identifica la descarga parcial: así un `.part`
+/// de otra versión del mismo archivo nunca se confunde con el actual.
+fn download_part_path(downloads_root: &Path, expected_hash: &str) -> PathBuf {
+    downloads_root.join(format!("{}.part", expected_hash.to_ascii_lowercase()))
+}
+
+/// Comprueba que el directorio de descargas parciales es un directorio real (nunca un enlace
+/// simbólico) y lo devuelve canonicalizado, creándolo si todavía no existe.
+async fn prepare_downloads_root(downloads_root: &Path) -> Result<PathBuf, StagingError> {
+    match fs::symlink_metadata(downloads_root).await {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+            return Err(StagingError::UnsafePath(downloads_root.to_path_buf()));
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            fs::create_dir_all(downloads_root)
+                .await
+                .map_err(StagingError::Filesystem)?;
+        }
+        Err(error) => return Err(StagingError::Filesystem(error)),
+    }
+    fs::canonicalize(downloads_root)
+        .await
+        .map_err(StagingError::Filesystem)
+}
+
 impl StagingError {
     fn is_retryable(&self) -> bool {
         matches!(
@@ -857,7 +922,10 @@ mod tests {
         collections::HashMap,
         fs,
         path::PathBuf,
-        sync::atomic::{AtomicU64, Ordering},
+        sync::{
+            atomic::{AtomicU64, Ordering},
+            Arc, Mutex,
+        },
     };
 
     use sha2::{Digest, Sha256};
@@ -951,22 +1019,50 @@ mod tests {
         }
     }
 
+    /// Servidor de prueba que respeta `Range` y registra el desplazamiento pedido en cada petición
+    /// (`None` cuando el cliente pide el archivo entero).
     async fn start_server(
         routes: HashMap<String, Vec<u8>>,
         request_count: usize,
-    ) -> (String, JoinHandle<()>) {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let task = tokio::spawn(async move {
-            for _ in 0..request_count {
-                let (stream, _) = listener.accept().await.unwrap();
-                serve_request(stream, &routes).await;
-            }
-        });
-        (format!("http://{address}"), task)
+    ) -> (String, Arc<Mutex<Vec<Option<u64>>>>, JoinHandle<()>) {
+        start_cutting_server(routes, request_count, None).await
     }
 
-    async fn serve_request(mut stream: TcpStream, routes: &HashMap<String, Vec<u8>>) {
+    /// Igual que [`start_server`], pero con la opción de cortar la primera respuesta: se anuncian
+    /// todos los bytes y solo se envían `cut_first_at`, simulando una descarga interrumpida.
+    async fn start_cutting_server(
+        routes: HashMap<String, Vec<u8>>,
+        request_count: usize,
+        cut_first_at: Option<usize>,
+    ) -> (String, Arc<Mutex<Vec<Option<u64>>>>, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let ranges = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&ranges);
+        let task = tokio::spawn(async move {
+            for index in 0..request_count {
+                let (stream, _) = listener.accept().await.unwrap();
+                let cut = if index == 0 { cut_first_at } else { None };
+                serve_request(stream, &routes, cut, &recorded).await;
+            }
+        });
+        (format!("http://{address}"), ranges, task)
+    }
+
+    fn request_range_start(request: &str) -> Option<u64> {
+        request.lines().find_map(|line| {
+            let line = line.trim().to_ascii_lowercase();
+            let value = line.strip_prefix("range: bytes=")?;
+            value.split('-').next()?.parse::<u64>().ok()
+        })
+    }
+
+    async fn serve_request(
+        mut stream: TcpStream,
+        routes: &HashMap<String, Vec<u8>>,
+        cut_first_at: Option<usize>,
+        recorded: &Mutex<Vec<Option<u64>>>,
+    ) {
         let mut request = Vec::new();
         let mut buffer = [0; 1024];
         while !request.windows(4).any(|window| window == b"\r\n\r\n") {
@@ -977,19 +1073,40 @@ mod tests {
             );
             request.extend_from_slice(&buffer[..bytes_read]);
         }
-        let request_line = String::from_utf8_lossy(&request);
-        let path = request_line
+        let request_text = String::from_utf8_lossy(&request).into_owned();
+        let path = request_text
             .lines()
             .next()
             .and_then(|line| line.split_whitespace().nth(1))
-            .unwrap();
-        let body = routes.get(path).expect("ruta de prueba registrada");
-        let headers = format!(
-            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-            body.len()
-        );
-        stream.write_all(headers.as_bytes()).await.unwrap();
-        stream.write_all(body).await.unwrap();
+            .unwrap()
+            .to_owned();
+        let start = request_range_start(&request_text);
+        recorded.lock().unwrap().push(start);
+
+        let body = routes.get(&path).expect("ruta de prueba registrada");
+        if let Some(offset) = start {
+            let from = offset as usize;
+            assert!(from <= body.len(), "el Range pedía más allá del cuerpo");
+            let tail = &body[from..];
+            let headers = format!(
+                "HTTP/1.1 206 Partial Content\r\nContent-Range: bytes {from}-{last}/{total}\r\nContent-Length: {length}\r\nConnection: close\r\n\r\n",
+                last = body.len().saturating_sub(1),
+                total = body.len(),
+                length = tail.len(),
+            );
+            stream.write_all(headers.as_bytes()).await.unwrap();
+            stream.write_all(tail).await.unwrap();
+        } else {
+            let headers = format!(
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            );
+            stream.write_all(headers.as_bytes()).await.unwrap();
+            stream
+                .write_all(&body[..cut_first_at.unwrap_or(body.len())])
+                .await
+                .unwrap();
+        }
     }
 
     fn client() -> Client {
@@ -1054,7 +1171,7 @@ mod tests {
         let body = b"small client file";
         let mut routes = HashMap::new();
         routes.insert("/file".to_owned(), body.to_vec());
-        let (base_url, server) = start_server(routes, 1).await;
+        let (base_url, _ranges, server) = start_server(routes, 1).await;
         let file = manifest_file(
             "Data/client.bin",
             body,
@@ -1075,7 +1192,7 @@ mod tests {
         let body = b"unexpected file";
         let mut routes = HashMap::new();
         routes.insert("/file".to_owned(), body.to_vec());
-        let (base_url, server) = start_server(routes, 1).await;
+        let (base_url, _ranges, server) = start_server(routes, 1).await;
         let mut file = manifest_file(
             "Data/client.bin",
             body,
@@ -1102,7 +1219,7 @@ mod tests {
             .iter()
             .map(|(path, contents)| ((*path).to_owned(), contents.to_vec()))
             .collect();
-        let (base_url, server) = start_server(routes, pieces.len()).await;
+        let (base_url, _ranges, server) = start_server(routes, pieces.len()).await;
         let file = assembled_file("Data/large.bin", &pieces, &base_url);
         let staging = TempDir::new();
 
@@ -1111,6 +1228,303 @@ mod tests {
             .unwrap();
 
         assert_eq!(fs::read(result).unwrap(), b"first-second-third");
+        server.await.unwrap();
+    }
+    /// Nombres de los `.part` presentes en un directorio de descargas parciales.
+    fn download_part_list(root: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(root)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .filter(|name| name.ends_with(".part"))
+            .collect();
+        names.sort();
+        names
+    }
+
+    fn body_bytes(len: u8) -> Vec<u8> {
+        (0..len).collect()
+    }
+
+    #[tokio::test]
+    async fn resumes_a_stale_partial_download_from_a_previous_run() {
+        let body = body_bytes(64);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, ranges, server) = start_server(routes, 1).await;
+        let file = manifest_file(
+            "Data/client.bin",
+            &body,
+            source(format!("{base_url}/file"), body.len()),
+        );
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        fs::write(download_part_path(&downloads, &file.sha256), &body[..24]).unwrap();
+
+        let result = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |_: u64| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fs::read(result).unwrap(), body);
+        assert_eq!(
+            ranges.lock().unwrap().clone(),
+            vec![Some(24)],
+            "una ejecución nueva debe reanudar con Range"
+        );
+        assert!(
+            download_part_list(&downloads).is_empty(),
+            "el .part promovido desaparece de downloads"
+        );
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn reports_resumed_bytes_as_progress_exactly_once() {
+        let body = body_bytes(64);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, _ranges, server) = start_server(routes, 1).await;
+        let file = manifest_file(
+            "Data/client.bin",
+            &body,
+            source(format!("{base_url}/file"), body.len()),
+        );
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        fs::write(download_part_path(&downloads, &file.sha256), &body[..30]).unwrap();
+
+        let mut reported = Vec::new();
+        stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |bytes| reported.push(bytes),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            reported.first().copied(),
+            Some(30),
+            "los bytes reanudados cuentan como progreso"
+        );
+        assert_eq!(reported.iter().sum::<u64>(), body.len() as u64);
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn keeps_the_partial_download_when_an_interrupted_attempt_fails() {
+        let body = body_bytes(64);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, _ranges, server) = start_cutting_server(routes, 1, Some(16)).await;
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        let partial = download_part_path(&downloads, &sha256(&body));
+
+        let result = download_attempt(
+            &client(),
+            &source(format!("{base_url}/file"), body.len()),
+            &partial,
+            "Data/client.bin",
+            body.len() as u64,
+            &mut |_: u64| {},
+            &mut false,
+        )
+        .await;
+
+        assert!(matches!(result, Err(StagingError::Network(_))));
+        assert_eq!(
+            fs::read(&partial).unwrap(),
+            body[..16],
+            "el .part a medias se conserva para reanudarlo en la siguiente ejecución"
+        );
+        server.await.unwrap();
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn rejects_a_symbolic_link_as_the_downloads_root() {
+        use std::os::unix::fs::symlink;
+
+        let staging = TempDir::new();
+        let target = staging.0.join("real");
+        fs::create_dir(&target).unwrap();
+        let downloads = staging.0.join("downloads");
+        symlink(&target, &downloads).unwrap();
+
+        let result = prepare_downloads_root(&downloads).await;
+
+        assert!(matches!(result, Err(StagingError::UnsafePath(_))));
+    }
+
+    #[tokio::test]
+    async fn retries_an_interrupted_download_without_counting_bytes_twice() {
+        let body = body_bytes(64);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, ranges, server) = start_cutting_server(routes, 2, Some(16)).await;
+        let file = manifest_file(
+            "Data/client.bin",
+            &body,
+            source(format!("{base_url}/file"), body.len()),
+        );
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+
+        let mut reported = Vec::new();
+        let result = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |bytes| reported.push(bytes),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fs::read(result).unwrap(), body);
+        let ranges = ranges.lock().unwrap().clone();
+        assert_eq!(ranges.len(), 2, "debe reintentar una vez");
+        assert_eq!(ranges[0], None, "el primer intento pide el archivo entero");
+        assert!(
+            ranges[1].is_some_and(|offset| offset > 0),
+            "el reintento reanuda donde se cortó"
+        );
+        assert_eq!(
+            reported.iter().sum::<u64>(),
+            body.len() as u64,
+            "los bytes ya recibidos no se cuentan dos veces"
+        );
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discards_a_corrupt_partial_download_and_starts_over() {
+        let body = body_bytes(64);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, ranges, server) = start_server(routes, 2).await;
+        let file = manifest_file(
+            "Data/client.bin",
+            &body,
+            source(format!("{base_url}/file"), body.len()),
+        );
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        let partial = download_part_path(&downloads, &file.sha256);
+        fs::write(&partial, vec![b'x'; 32]).unwrap();
+
+        let first = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |_: u64| {},
+        )
+        .await;
+        assert!(matches!(first, Err(StagingError::HashMismatch { .. })));
+        assert!(
+            !partial.exists(),
+            "el .part que no cuadra con el hash se borra"
+        );
+
+        let result = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |_: u64| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fs::read(result).unwrap(), body);
+        assert_eq!(
+            ranges.lock().unwrap().clone(),
+            vec![Some(32), None],
+            "tras descartar el .part corrupto se descarga desde el principio"
+        );
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discards_a_partial_download_larger_than_the_expected_file() {
+        let body = body_bytes(32);
+        let mut routes = HashMap::new();
+        routes.insert("/file".to_owned(), body.clone());
+        let (base_url, ranges, server) = start_server(routes, 1).await;
+        let file = manifest_file(
+            "Data/client.bin",
+            &body,
+            source(format!("{base_url}/file"), body.len()),
+        );
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        fs::write(download_part_path(&downloads, &file.sha256), vec![b'x'; 48]).unwrap();
+
+        let result = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |_: u64| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fs::read(result).unwrap(), body);
+        assert_eq!(
+            ranges.lock().unwrap().clone(),
+            vec![None],
+            "un .part mayor que el archivo esperado se descarta"
+        );
+        server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn resumes_a_stale_fragment_partial_download_keyed_by_part_hash() {
+        let pieces: [(&str, &[u8]); 2] = [("/part-0", b"first-"), ("/part-1", b"second")];
+        let routes = pieces
+            .iter()
+            .map(|(path, contents)| ((*path).to_owned(), contents.to_vec()))
+            .collect();
+        let (base_url, ranges, server) = start_server(routes, pieces.len()).await;
+        let file = assembled_file("Data/large.bin", &pieces, &base_url);
+        let staging = TempDir::new();
+        let downloads = staging.0.join("downloads");
+        fs::create_dir_all(&downloads).unwrap();
+        let part_hash = file.assembly.as_ref().unwrap().parts[0].sha256.clone();
+        fs::write(download_part_path(&downloads, &part_hash), b"fir").unwrap();
+
+        let result = stage_manifest_file_with_downloads(
+            &client(),
+            &file,
+            &staging.0,
+            &downloads,
+            &mut |_: u64| {},
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(fs::read(result).unwrap(), b"first-second");
+        assert_eq!(
+            ranges.lock().unwrap().clone(),
+            vec![Some(3), None],
+            "el fragmento se reanuda con el hash del propio fragmento"
+        );
         server.await.unwrap();
     }
 

@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Component, Path, PathBuf},
     process::Command,
@@ -16,7 +16,7 @@ use crate::update_engine::{
     integrity::{self, CachedFileState, FileStatus, FileVerification, VerifyMode},
     manifest::{
         normalize_manifest_path, parse_manifest, resolve_manifest_path, validate_source_hosts,
-        validate_target, ExpectedTarget, FileKind, FileRole, Manifest,
+        validate_target, ExpectedTarget, FileKind, FileRole, Manifest, ManifestFile,
     },
     staging,
 };
@@ -30,6 +30,8 @@ const MANIFEST_PUBLIC_KEY_HEX: &str =
 const MANIFEST_KEY_ID: &str = "warcrafted-manifest-2026";
 const ALLOWED_SOURCE_HOSTS: &[&str] = &["raw.githubusercontent.com", "github.com"];
 const STAGING_DIRECTORY: &str = ".warcrafted-staging";
+/// Subcarpeta de `.warcrafted-staging` que conserva las descargas parciales entre ejecuciones.
+const DOWNLOAD_DIRECTORY: &str = "downloads";
 const GAME_EXECUTABLE: &str = "Wow.exe";
 /// Cadencia mínima entre eventos `download-progress`; el último de cada archivo siempre se emite.
 const DOWNLOAD_PROGRESS_INTERVAL: Duration = Duration::from_millis(200);
@@ -349,7 +351,14 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
     disk_space::ensure_enough(pending_bytes, disk_space::free_bytes(&client_dir)?)?;
 
     let install_root = prepare_install_root(&client_dir)?;
-    let staging_directory = create_staging_directory(&install_root)?;
+    let staging_layout = create_staging_layout(&install_root)?;
+    // Antes de descargar nada, se borran los restos de ejecuciones anteriores (staging y `.part`
+    // ajenos al manifest pendiente). Los `.part` esperados se conservan para reanudar.
+    clean_orphan_staging(
+        &staging_layout.parent,
+        &staging_layout.run.0,
+        &expected_hashes(&pending),
+    )?;
     let client = reqwest::Client::builder()
         .build()
         .map_err(|error| format!("no se pudo preparar el cliente HTTP: {error}"))?;
@@ -365,7 +374,8 @@ pub(crate) async fn update_client(app: AppHandle) -> Result<(), String> {
             &client,
             file,
             &install_root,
-            &staging_directory.0,
+            &staging_layout.run.0,
+            &staging_layout.downloads,
             &mut |bytes| download_progress.record(bytes),
         )
         .await;
@@ -732,15 +742,21 @@ fn to_client_file_status(role: FileRole, verification: &FileVerification) -> Cli
 
 async fn install_manifest_file(
     client: &reqwest::Client,
-    file: &crate::update_engine::manifest::ManifestFile,
+    file: &ManifestFile,
     install_root: &Path,
     staging_root: &Path,
+    downloads_root: &Path,
     on_bytes: &mut (dyn FnMut(u64) + Send),
 ) -> Result<(), String> {
-    let staged_path =
-        staging::stage_manifest_file_with_progress(client, file, staging_root, on_bytes)
-            .await
-            .map_err(|error| error.to_string())?;
+    let staged_path = staging::stage_manifest_file_with_downloads(
+        client,
+        file,
+        staging_root,
+        downloads_root,
+        on_bytes,
+    )
+    .await
+    .map_err(|error| error.to_string())?;
     let destination =
         resolve_manifest_path(install_root, &file.path).map_err(|error| error.to_string())?;
 
@@ -778,7 +794,17 @@ fn prepare_install_root(path: &Path) -> Result<PathBuf, String> {
         .map_err(|error| format!("no se pudo resolver el directorio del cliente: {error}"))
 }
 
-fn create_staging_directory(install_root: &Path) -> Result<StagingDirectory, String> {
+/// Distribución del staging en disco: lo que sobrevive entre ejecuciones y lo que no.
+struct StagingLayout {
+    /// `<cliente>/.warcrafted-staging`; su contenido se conserva entre ejecuciones.
+    parent: PathBuf,
+    /// `<cliente>/.warcrafted-staging/downloads`; descargas parciales reanudables.
+    downloads: PathBuf,
+    /// Directorio de la ejecución actual, borrado al terminar.
+    run: StagingDirectory,
+}
+
+fn create_staging_layout(install_root: &Path) -> Result<StagingLayout, String> {
     let parent = install_root.join(STAGING_DIRECTORY);
     match fs::symlink_metadata(&parent) {
         Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
@@ -801,6 +827,34 @@ fn create_staging_directory(install_root: &Path) -> Result<StagingDirectory, Str
         return Err("el directorio de staging escapa del cliente".into());
     }
 
+    let downloads = parent.join(DOWNLOAD_DIRECTORY);
+    match fs::symlink_metadata(&downloads) {
+        Ok(metadata) if metadata.file_type().is_symlink() || !metadata.is_dir() => {
+            return Err("el directorio de descargas parciales no es seguro".into());
+        }
+        Ok(_) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(&downloads).map_err(|error| {
+                format!("no se pudo crear el directorio de descargas parciales: {error}")
+            })?;
+        }
+        Err(error) => {
+            return Err(format!(
+                "no se pudo acceder al directorio de descargas parciales: {error}"
+            ));
+        }
+    }
+
+    let run = create_staging_run_directory(&parent)?;
+    Ok(StagingLayout {
+        parent,
+        downloads,
+        run,
+    })
+}
+
+/// Reserva un directorio `run-<pid>-<n>` exclusivo de esta ejecución.
+fn create_staging_run_directory(parent: &Path) -> Result<StagingDirectory, String> {
     for _ in 0..32 {
         let sequence = NEXT_STAGING_DIRECTORY.fetch_add(1, Ordering::Relaxed);
         let candidate = parent.join(format!("run-{}-{sequence}", std::process::id()));
@@ -815,6 +869,75 @@ fn create_staging_directory(install_root: &Path) -> Result<StagingDirectory, Str
         }
     }
     Err("no se pudo reservar un directorio de staging".into())
+}
+
+/// Hashes esperados (de archivos y de fragmentos) que sí puede usar esta actualización.
+fn expected_hashes(files: &[ManifestFile]) -> HashSet<String> {
+    let mut hashes = HashSet::new();
+    for file in files {
+        hashes.insert(file.sha256.to_ascii_lowercase());
+        if let Some(assembly) = &file.assembly {
+            for part in &assembly.parts {
+                hashes.insert(part.sha256.to_ascii_lowercase());
+            }
+        }
+    }
+    hashes
+}
+
+/// Borra los restos de ejecuciones anteriores antes de empezar a descargar: directorios `run-*`
+/// que no sean el de esta ejecución y `.part` cuyo hash no pertenezca al manifest pendiente.
+///
+/// Los `.part` sí esperados se conservan para reanudar la descarga donde se quedó.
+fn clean_orphan_staging(
+    staging_parent: &Path,
+    current_run: &Path,
+    expected: &HashSet<String>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(staging_parent)
+        .map_err(|error| format!("no se pudo leer el directorio de staging: {error}"))?;
+    for entry in entries {
+        let entry =
+            entry.map_err(|error| format!("no se pudo leer el directorio de staging: {error}"))?;
+        let path = entry.path();
+        if path == current_run || !entry.file_name().to_string_lossy().starts_with("run-") {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("no se pudo acceder a un resto de staging: {error}"))?;
+        if metadata.file_type().is_symlink() || !metadata.is_dir() {
+            continue;
+        }
+        fs::remove_dir_all(&path)
+            .map_err(|error| format!("no se pudo borrar un resto de staging: {error}"))?;
+    }
+
+    let downloads = staging_parent.join(DOWNLOAD_DIRECTORY);
+    let entries = fs::read_dir(&downloads).map_err(|error| {
+        format!("no se pudo leer el directorio de descargas parciales: {error}")
+    })?;
+    for entry in entries {
+        let entry = entry.map_err(|error| {
+            format!("no se pudo leer el directorio de descargas parciales: {error}")
+        })?;
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        let Some(hash) = name.strip_suffix(".part") else {
+            continue;
+        };
+        if expected.contains(&hash.to_ascii_lowercase()) {
+            continue;
+        }
+        let path = entry.path();
+        let metadata = fs::symlink_metadata(&path)
+            .map_err(|error| format!("no se pudo acceder a una descarga parcial: {error}"))?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            continue;
+        }
+        fs::remove_file(&path)
+            .map_err(|error| format!("no se pudo borrar una descarga parcial ajena: {error}"))?;
+    }
+    Ok(())
 }
 
 fn promote_staged_file(
@@ -968,7 +1091,7 @@ fn decide_launch(
 mod tests {
     use super::*;
     use crate::update_engine::manifest::{
-        Compression, FileSource, ManifestFile, ManifestSignature,
+        Assembly, AssemblyPart, Compression, FileSource, ManifestFile, ManifestSignature,
     };
     use std::sync::atomic::AtomicU64;
 
@@ -1205,6 +1328,132 @@ mod tests {
         assert_eq!(
             fs::read(cache_target.join("keep")).expect("leer destino"),
             b"keep"
+        );
+    }
+
+    #[test]
+    fn cleans_orphan_staging_and_foreign_partial_downloads() {
+        let directory = TestDirectory::new();
+        let install_root =
+            prepare_install_root(&directory.0.join("client")).expect("preparar cliente");
+        let staging_layout = create_staging_layout(&install_root).expect("crear staging");
+
+        let orphan = staging_layout.parent.join("run-000000-0");
+        fs::create_dir(&orphan).expect("crear resto huérfano");
+        fs::write(orphan.join("leftover"), b"resto").expect("crear resto");
+
+        // El manifest pendiente incluye un archivo simple y otro ensamblado por un fragmento.
+        let source = || FileSource {
+            url: "https://github.com/example/file".into(),
+            compressed_size_bytes: 0,
+            compression: Compression::None,
+        };
+        let simple = |path: &str, sha256: &str| ManifestFile {
+            path: path.into(),
+            role: FileRole::Required,
+            kind: FileKind::ClientBase,
+            addon_group: None,
+            size_bytes: 0,
+            sha256: sha256.into(),
+            source: Some(source()),
+            assembly: None,
+        };
+        let mut assembled = simple("Data/patch.MPQ", &"1".repeat(64));
+        assembled.source = None;
+        assembled.assembly = Some(Assembly {
+            part_size_bytes: 0,
+            parts: vec![AssemblyPart {
+                sha256: "2".repeat(64),
+                size_bytes: 0,
+                source: source(),
+            }],
+        });
+        let pending = vec![simple("Wow.exe", &"3".repeat(64)), assembled];
+
+        for hash in ["3".repeat(64), "2".repeat(64)] {
+            fs::write(
+                staging_layout.downloads.join(format!("{hash}.part")),
+                b"propio",
+            )
+            .expect("crear .part propio");
+        }
+        fs::write(
+            staging_layout
+                .downloads
+                .join(format!("{}.part", "9".repeat(64))),
+            b"ajeno",
+        )
+        .expect("crear .part ajeno");
+        fs::write(staging_layout.downloads.join("nota.txt"), b"otro").expect("crear archivo ajeno");
+
+        clean_orphan_staging(
+            &staging_layout.parent,
+            &staging_layout.run.0,
+            &expected_hashes(&pending),
+        )
+        .expect("limpiar restos");
+
+        assert!(!orphan.exists(), "el run-* huérfano debe borrarse");
+        assert!(
+            staging_layout.run.0.is_dir(),
+            "el run-* de esta ejecución debe conservarse"
+        );
+        for hash in ["3".repeat(64), "2".repeat(64)] {
+            assert!(
+                staging_layout
+                    .downloads
+                    .join(format!("{hash}.part"))
+                    .is_file(),
+                "un .part esperado (archivo o fragmento) debe conservarse"
+            );
+        }
+        assert!(
+            !staging_layout
+                .downloads
+                .join(format!("{}.part", "9".repeat(64)))
+                .exists(),
+            "un .part ajeno al manifest pendiente debe borrarse"
+        );
+        assert!(
+            staging_layout.downloads.join("nota.txt").is_file(),
+            "un archivo que no es .part no se toca"
+        );
+    }
+
+    #[test]
+    fn staging_layout_rejects_a_file_as_downloads_directory() {
+        let directory = TestDirectory::new();
+        let install_root =
+            prepare_install_root(&directory.0.join("client")).expect("preparar cliente");
+        let staging_parent = install_root.join(STAGING_DIRECTORY);
+        let downloads = staging_parent.join(DOWNLOAD_DIRECTORY);
+        fs::create_dir_all(&staging_parent).expect("crear staging");
+        fs::write(&downloads, b"archivo").expect("crear archivo en lugar de directorio");
+
+        assert!(
+            create_staging_layout(&install_root).is_err(),
+            "un archivo no puede hacer de directorio de descargas parciales"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn staging_layout_rejects_a_symbolic_link_as_downloads_directory() {
+        use std::os::unix::fs::symlink;
+
+        let directory = TestDirectory::new();
+        let install_root =
+            prepare_install_root(&directory.0.join("client")).expect("preparar cliente");
+        let staging_parent = install_root.join(STAGING_DIRECTORY);
+        let downloads = staging_parent.join(DOWNLOAD_DIRECTORY);
+        fs::create_dir_all(&staging_parent).expect("crear staging");
+        let target = directory.0.join("target");
+        fs::create_dir(&target).expect("crear destino");
+        symlink(&target, &downloads).expect("crear enlace simbólico");
+
+        assert!(
+            create_staging_layout(&install_root).is_err(),
+            "un enlace simbólico no puede hacer de directorio de descargas parciales"
         );
     }
 }

@@ -96,7 +96,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Terminado: tests del cálculo de velocidad/ETA; progreso visible en una descarga real.
 - Ejecutor: AgentRelay, esfuerzo medio.
 
-### [ ] 7. Reanudación entre ejecuciones — 0.7.0 (menor)
+### [x] 7. Reanudación entre ejecuciones — 0.7.0 (menor)
 - Archivos: `ui_commands.rs`, `update_engine/staging.rs`. Staging persistente en
   `<cliente>/.warcrafted-staging/downloads/<sha256>.part` (la clave es el hash esperado: un
   `.part` de otra versión nunca se mezcla); al reanudar usa Range desde su tamaño; el hash final
