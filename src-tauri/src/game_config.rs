@@ -414,7 +414,6 @@ mod tests {
         let contents = fs::read_to_string(wtf.join("config.wtf")).expect("leer config");
         assert!(contents.contains("SET locale \"esES\""));
         assert!(contents.contains("SET readEULA \"1\""));
-        assert!(!wtf.join("Config.wtf").exists());
     }
 
     #[test]

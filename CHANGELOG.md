@@ -18,6 +18,9 @@ Retoques de interfaz (parche).
 - En Ajustes, la tarjeta «Archivos del cliente» quedaba aplastada y con el título desplazado fuera
   de su recuadro cuando la ventana era baja; ahora tiene alto mínimo y la página se desplaza.
 
+- Un test de `game_config` fallaba en Windows (comparaba nombres sin distinguir mayúsculas); solo
+  afectaba al test.
+
 ### Cambiado
 
 - Mensaje de «cliente no instalado» más claro («Hay que descargar 16,6 GB y tienes 194,9 GB libres
