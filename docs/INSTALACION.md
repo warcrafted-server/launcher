@@ -10,8 +10,10 @@
    donde quieres instalarlo).
 4. Para desinstalar: «Aplicaciones» de Windows → WarCrafted Launcher. No toca tu cliente de WoW.
 
-Windows SmartScreen puede avisar mientras el instalador no esté firmado con un certificado de
-código (pendiente, ver `TODO.md`).
+Windows SmartScreen avisa de «editor desconocido» porque el instalador no está firmado con un
+certificado de código (pendiente, ver `TODO.md`). Para continuar: **Más información → Ejecutar de
+todas formas**. Cada release publica el SHA-256 del instalador en sus notas para que puedas
+comprobarlo con `Get-FileHash "<instalador>.exe"` en PowerShell.
 
 ## Compilar el instalador (desarrolladores)
 
@@ -28,5 +30,4 @@ Salida: `src-tauri\target\release\bundle\nsis\WarCrafted Launcher_X.Y.Z_x64-setu
 El instalador incluye `LICENSE`, `CREDITS.md` y `THIRD-PARTY-NOTICES.md` junto al ejecutable. Si
 cambian las dependencias, regenera este último con `python3 scripts/third-party.py` antes de
 compilar. Los iconos salen de `src/assets/icono-warcrafted.jpg` (cuadrado) con
-`npx tauri icon src/assets/icono-warcrafted.jpg` (el logotipo y el icono tienen su licencia
-pendiente de verificar: no publiques el instalador hasta resolverlo).
+`npx tauri icon src/assets/icono-warcrafted.jpg`.

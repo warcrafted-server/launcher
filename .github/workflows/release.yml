@@ -66,3 +66,13 @@ jobs:
           prerelease: false
           includeUpdaterJson: true
           updaterJsonPreferNsis: true
+      - name: Añadir el SHA-256 del instalador a las notas
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          exe="$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -n 1)"
+          hash="$(sha256sum "$exe" | cut -d' ' -f1)"
+          gh release view "$GITHUB_REF_NAME" --json body -q .body > body.md
+          printf '\n\n**SHA-256 de %s:** `%s`\n' "$(basename "$exe")" "$hash" >> body.md
+          gh release edit "$GITHUB_REF_NAME" --notes-file body.md

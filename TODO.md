@@ -47,9 +47,5 @@ Plan de ejecución de distribución, autoactualización y descargas:
 - [ ] Crear en GitHub (Settings → Secrets → Actions) `TAURI_SIGNING_PRIVATE_KEY` (contenido de
       `~/.warcrafted/updater.key`) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: sin ellos el workflow de
       release falla al firmar. Los secrets solo los puede crear el usuario.
-- [ ] **(decisión)** Logotipo e icono (`src/assets/logo-warcrafted.jpg` y `icono-warcrafted.jpg`):
-      el usuario cree que los generó Nano Banana (Gemini); sin verificar. Comprobar si las
-      condiciones de esa herramienta permiten el uso y la redistribución; hasta entonces están
-      excluidos de la licencia (`CREDITS.md`). Resolverlo antes de publicar el instalador.
 - [ ] **(decisión)** Tags `vX.Y.Z`: los dispara el usuario (o con su aprobación) y el workflow de release publica
       la versión

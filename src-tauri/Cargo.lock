@@ -4884,7 +4884,7 @@ dependencies = [
 
 [[package]]
 name = "warcrafted-launcher"
-version = "0.10.2"
+version = "0.10.3"
 dependencies = [
  "ed25519-dalek",
  "fs4",

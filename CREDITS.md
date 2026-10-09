@@ -13,7 +13,7 @@ indicado a continuación.
 
 | Material | Origen | Estado |
 | --- | --- | --- |
-| `src/assets/logo-warcrafted.jpg` (logotipo) | Imagen generada con una herramienta de inteligencia artificial, encargada por WarCrafted. La herramienta y sus condiciones de uso no están identificadas. | **REVISIÓN NECESARIA**: no se concede ningún derecho sobre el logotipo hasta verificar las condiciones de la herramienta. Los forks no pueden usarlo como identidad propia. |
+| `src/assets/logo-warcrafted.jpg` (logotipo) y `src/assets/icono-warcrafted.jpg` (icono) | Imágenes generadas con Nano Banana (Gemini, de Google), encargadas por WarCrafted. Según los términos de Google, esta no reclama la propiedad del contenido generado y el usuario es responsable de su uso (consultado el 2026-10-09 en la [Gemini Apps Privacy Hub](https://support.google.com/gemini/answer/13594961?hl=en)). | Se usan como identidad visual de WarCrafted. Al ser generadas por IA, WarCrafted no reclama copyright exclusivo sobre ellas y no se conceden derechos adicionales: los forks no pueden presentarlas como identidad propia. |
 
 ## Componentes de terceros
 

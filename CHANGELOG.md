@@ -6,6 +6,17 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.10.3] - 2026-10-09
+
+Créditos y documentación (parche).
+
+### Cambiado
+
+- `CREDITS.md`: el logotipo y el icono constan como generados con Nano Banana (Gemini, de Google),
+  con la fuente y fecha de consulta de sus términos; sin copyright exclusivo reclamado.
+- `docs/INSTALACION.md`: cómo continuar ante el aviso de SmartScreen y comprobar el SHA-256.
+- El workflow de release añade el SHA-256 del instalador a las notas de la release.
+
 ## [0.10.2] - 2026-10-09
 
 Limpieza interna (parche).

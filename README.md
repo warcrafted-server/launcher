@@ -155,6 +155,6 @@ Las copias y los forks deben conservar esta atribución y enlazar a https://gith
 
 ### Material de terceros
 
-Ver [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md): 506 componentes de Rust y 3 de JavaScript, todos con licencias permisivas (MIT, Apache-2.0 y similares; cinco de Tauri bajo MPL-2.0, sin modificar). El logotipo queda fuera del alcance de la licencia; ver [`CREDITS.md`](CREDITS.md).
+Ver [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md): 506 componentes de Rust y 3 de JavaScript, todos con licencias permisivas (MIT, Apache-2.0 y similares; cinco de Tauri bajo MPL-2.0, sin modificar). El logotipo y el icono quedan fuera del alcance de la licencia; ver [`CREDITS.md`](CREDITS.md).
 
 Créditos completos: [CREDITS.md](CREDITS.md).
