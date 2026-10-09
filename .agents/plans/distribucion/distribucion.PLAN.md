@@ -68,7 +68,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
   mayor, la UI lo ofrece; una firma incorrecta se rechaza.
 - Ejecutor: AgentRelay, esfuerzo alto (seguridad).
 
-### [ ] 4. Workflow de release — 0.4.1 (parche)
+### [x] 4. Workflow de release (hecho; faltan los secrets del usuario y un tag aprobado para probarlo) — 0.4.1 (parche)
 - Antes (con aprobación del usuario): marcar como pre-release las releases `patch`,
   `RuneEngraver` y `contenido-v1` vía API (token en `~/.warcrafted/github-token`); el usuario
   crea en GitHub los secrets `TAURI_SIGNING_PRIVATE_KEY` (contenido de `updater.key`) y

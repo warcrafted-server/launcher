@@ -25,12 +25,22 @@ publica contenido nuevo, ver la decisión 0002).
 
 ## Publicar una versión
 
-1. Mover las entradas de `[Sin publicar]` en `CHANGELOG.md` a una sección nueva `[X.Y.Z] - AAAA-MM-DD`.
+1. Mover las entradas de `[Sin publicar]` en `CHANGELOG.md` a una sección nueva `[X.Y.Z] - AAAA-MM-DD`
+   (el workflow usa esa sección como notas de la release).
 2. `node scripts/version.mjs X.Y.Z` y comprobar con `--check`.
 3. Actualizar README y `docs/ESTADO.md` si cambian instalación, uso o estado.
 4. `npm run build` y `cd src-tauri && cargo test` en verde.
-5. Commit `Publica la versión X.Y.Z`, tag anotado `vX.Y.Z` y push de commit y tag (con la
-   aprobación del usuario).
+5. Commit `Publica la versión X.Y.Z`, push del commit y, con la aprobación del usuario, tag anotado
+   `vX.Y.Z` y push del tag.
+6. El workflow `.github/workflows/release.yml` se dispara con el tag: comprueba que coincide con la
+   versión, compila en Windows, firma con la clave del autoactualizador y crea la release `vX.Y.Z`
+   con el instalador, su `.sig` y `latest.json` (marcada como «latest»). Los launcher ya instalados
+   la detectan al arrancar.
+
+Requisitos únicos: los secrets del repositorio `TAURI_SIGNING_PRIVATE_KEY` (contenido de la clave
+privada del autoactualizador) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Las releases de contenido
+(`patch`, `RuneEngraver`, `contenido-v1`) son pre-release para que nunca sean «latest»; cualquier
+release de contenido nueva debe crearse también como pre-release.
 
 ## Entre versiones
 

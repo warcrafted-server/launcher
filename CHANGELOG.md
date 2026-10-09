@@ -6,6 +6,22 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.4.1] - 2026-10-09
+
+Workflow de release (parche: infraestructura de publicación, sin cambios en la aplicación).
+
+### Añadido
+
+- `.github/workflows/release.yml`: al subir un tag `vX.Y.Z` compila en Windows, firma el instalador
+  y publica la release con el instalador, su `.sig` y `latest.json`, con las notas tomadas del
+  CHANGELOG. Falla si el tag no coincide con la versión del proyecto.
+
+### Cambiado
+
+- Las releases de contenido `patch`, `RuneEngraver` y `contenido-v1` pasan a pre-release para que
+  `latest` apunte siempre a una release del launcher.
+- `docs/VERSIONADO.md`: procedimiento de publicación con el workflow.
+
 ## [0.4.0] - 2026-10-09
 
 Autoactualización del launcher (menor: funcionalidad nueva compatible).

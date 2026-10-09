@@ -32,7 +32,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
       o que lo copie a `src/assets/`, y luego `npx tauri icon <archivo>` (hoy los iconos salen del
       logo apaisado con `--fit contain`). Misma duda de licencia que el logotipo (ver abajo).
 
-- [ ] Publicación de releases por tag `vX.Y.Z` con GitHub Actions (los tests ya corren en CI)
 - [ ] **(decisión)** Firma de código de Windows: sin ella SmartScreen avisará al instalar
 - [ ] **(decisión)** Clave de firma del manifest en más equipos (hoy solo en el Debian de casa)
 - [ ] Mover el origen de descarga si GitHub se queda corto (límites de ancho de banda no medidos
@@ -59,8 +58,11 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Pendientes administrativos
 
+- [ ] Crear en GitHub (Settings → Secrets → Actions) `TAURI_SIGNING_PRIVATE_KEY` (contenido de
+      `~/.warcrafted/updater.key`) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: sin ellos el workflow de
+      release falla al firmar. Los secrets solo los puede crear el usuario.
 - [ ] **(decisión)** Logotipo: averiguar qué herramienta de IA lo generó y si sus condiciones
       permiten el uso y la redistribución; hasta entonces está excluido de la licencia
       (`CREDITS.md`). Resolverlo antes de publicar el instalador.
-- [ ] **(decisión)** Tags `vX.Y.Z`: los crea el flujo de release del plan de distribución, con la
-      aprobación del usuario en cada caso
+- [ ] **(decisión)** Tags `vX.Y.Z`: los dispara el usuario (o con su aprobación) y el workflow de release publica
+      la versión

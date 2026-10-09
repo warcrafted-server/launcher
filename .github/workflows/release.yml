@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-release-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-release-
+      - name: Comprobar que el tag coincide con la versión
+        shell: bash
+        run: |
+          node scripts/version.mjs --check
+          version="$(node -p "require('./package.json').version")"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "El tag $GITHUB_REF_NAME no coincide con la versión $version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - name: Notas de la versión desde el CHANGELOG
+        id: notes
+        shell: bash
+        run: |
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > release-notes.md
+          if [ ! -s release-notes.md ]; then
+            echo "No hay sección [$VERSION] en CHANGELOG.md" >&2
+            exit 1
+          fi
+          {
+            echo "body<<NOTES_EOF"
+            cat release-notes.md
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+      - run: npm ci
+      - uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: WarCrafted Launcher ${{ github.ref_name }}
+          releaseBody: ${{ steps.notes.outputs.body }}
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true
