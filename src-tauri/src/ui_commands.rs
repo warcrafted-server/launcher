@@ -994,7 +994,10 @@ mod tests {
 
         let install_dir = create_install_dir_for_parent(&directory.0).expect("crear instalación");
 
-        assert_eq!(install_dir, directory.0.join("WarCrafted WotLK"));
+        assert_eq!(
+            install_dir.canonicalize().unwrap(),
+            directory.0.join("WarCrafted WotLK").canonicalize().unwrap()
+        );
         assert!(install_dir.is_dir());
     }
 
@@ -1005,8 +1008,11 @@ mod tests {
         fs::create_dir(&install_dir).expect("crear carpeta vacía");
 
         assert_eq!(
-            create_install_dir_for_parent(&directory.0).expect("reutilizar carpeta vacía"),
-            install_dir
+            create_install_dir_for_parent(&directory.0)
+                .expect("reutilizar carpeta vacía")
+                .canonicalize()
+                .unwrap(),
+            install_dir.canonicalize().unwrap()
         );
     }
 

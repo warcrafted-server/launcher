@@ -657,7 +657,10 @@ mod tests {
         temp_dir.write("Data/file.MPQ", contents);
         let path = temp_dir.0.join("Data/file.MPQ");
         let cached = cached_state(&path, contents.len() as u64, expected.clone());
-        fs::File::open(&path)
+        // Windows exige abrir en escritura para cambiar la fecha de modificación.
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&path)
             .unwrap()
             .set_times(FileTimes::new().set_modified(SystemTime::now() + Duration::from_secs(3)))
             .expect("cambiar fecha de modificación");

@@ -19,6 +19,11 @@ Autoactualización del launcher (menor: funcionalidad nueva compatible).
 - `tauri-plugin-updater` (firma minisign propia, distinta de la del manifest; rechaza firmas
   inválidas) y `tauri-plugin-process`, ambos MIT/Apache-2.0; instalación `passive`.
 
+### Corregido
+
+- Tres tests fallaban en Windows (rutas con prefijo `\\?\`/nombres 8.3 y cambio de fecha sin abrir en
+  escritura); detectado por el CI. Solo afecta a los tests.
+
 ## [0.3.0] - 2026-10-09
 
 Instalador de Windows (menor: funcionalidad nueva compatible).
