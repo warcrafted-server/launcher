@@ -27,7 +27,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Prioridad 2 — producto distribuible
 
-- [ ] Instalador de Windows (MSI/NSIS) con WebView2 incluido o bootstrapper
 - [ ] Autoactualización del propio launcher (updater de Tauri con firma propia)
 - [ ] Publicación de releases por tag `vX.Y.Z` con GitHub Actions (los tests ya corren en CI)
 - [ ] **(decisión)** Firma de código de Windows: sin ella SmartScreen avisará al instalar

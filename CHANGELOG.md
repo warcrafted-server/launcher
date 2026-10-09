@@ -6,6 +6,21 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.3.0] - 2026-10-09
+
+Instalador de Windows (menor: funcionalidad nueva compatible).
+
+### Añadido
+
+- Instalador NSIS por usuario (sin administrador) con WebView2 mediante `embedBootstrapper`,
+  editor, descripción y copyright; incluye `LICENSE`, `CREDITS.md` y `THIRD-PARTY-NOTICES.md`.
+- `docs/INSTALACION.md`: instalación para jugadores y compilación del instalador.
+
+### Cambiado
+
+- Iconos de la aplicación regenerados desde el logotipo (`--fit contain`).
+- Objetivo de empaquetado reducido a `nsis`.
+
 ## [0.2.2] - 2026-10-09
 
 Cambio interno (parche): tests automáticos en CI.

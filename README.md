@@ -5,7 +5,7 @@ Warcraft: Wrath of the Lich King (build 3.3.5a / 12340). Es el punto de entrada 
 detecta y prepara el cliente, descarga y verifica parches y addons obligatorios, repara archivos
 dañados y lanza el juego, sin que el jugador tenga que gestionar nada a mano.
 
-> **Estado del proyecto: en desarrollo activo (versión 0.2.1), sin instalador ni release todavía.** Este README
+> **Estado del proyecto: en desarrollo activo (versión 0.3.0), instalador configurado pero sin release publicada todavía.** Este README
 > describe lo que existe hoy, no un objetivo final. El estado detallado y los próximos pasos
 > viven en [`docs/ESTADO.md`](docs/ESTADO.md).
 
@@ -105,6 +105,11 @@ npm run tauri dev            # arranca el launcher en modo desarrollo
 npm run build                # compila el frontend (TypeScript + Vite)
 cd src-tauri && cargo test   # tests del backend Rust
 ```
+
+### Instalador de Windows
+
+`npm run tauri build` en Windows genera un instalador NSIS por usuario (sin administrador). Detalle
+para jugadores y para compilarlo en [`docs/INSTALACION.md`](docs/INSTALACION.md).
 
 ## Uso
 

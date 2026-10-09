@@ -41,7 +41,7 @@ Punto de partida: versión 0.2.1 (licencia WNCL-TP-1.0 ya aplicada, titular WarC
 - Ejecutor: AgentRelay, esfuerzo medio. Verifica la licencia de cada acción usada.
 - CHANGELOG: «Corregido/Cambiado: tests automáticos en GitHub Actions».
 
-### [ ] 2. Instalador NSIS — 0.3.0 (menor)
+### [x] 2. Instalador NSIS (hecho; la compilación en Windows queda al usuario) — 0.3.0 (menor)
 - Archivos: `src-tauri/tauri.conf.json` (bundle: `targets: ["nsis"]`, `windows.nsis.installMode:
   "currentUser"`, `windows.webviewInstallMode: { type: "embedBootstrapper" }`, `publisher`,
   `shortDescription`, `copyright: "Copyright (C) 2026 WarCrafted"`, y `bundle.resources` con `LICENSE`,

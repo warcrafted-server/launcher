@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "WarCrafted Launcher",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "identifier": "com.warcrafted.launcher",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -29,13 +29,31 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "publisher": "WarCrafted",
+    "shortDescription": "Launcher oficial de WarCrafted",
+    "copyright": "Copyright (C) 2026 WarCrafted",
+    "resources": {
+      "../LICENSE": "LICENSE",
+      "../CREDITS.md": "CREDITS.md",
+      "../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      },
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    }
   }
 }
