@@ -44,8 +44,6 @@ Plan de ejecución de distribución, autoactualización y descargas:
 
 ## Pendientes administrativos
 
-- [ ] Crear en GitHub (Settings → Secrets → Actions) `TAURI_SIGNING_PRIVATE_KEY` (contenido de
-      `~/.warcrafted/updater.key`) y `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: sin ellos el workflow de
-      release falla al firmar. Los secrets solo los puede crear el usuario.
-- [ ] **(decisión)** Tags `vX.Y.Z`: los dispara el usuario (o con su aprobación) y el workflow de release publica
-      la versión
+- [ ] Backup de `~/.warcrafted/updater.key` y su contraseña fuera del Debian: si se pierden, los
+      launchers instalados dejan de poder actualizarse y habría que reinstalar a mano.
+- [ ] Proteger los tags `v*` en GitHub (Settings → Rules) para que solo los cree el propietario.
