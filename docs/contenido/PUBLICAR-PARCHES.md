@@ -25,8 +25,37 @@ existe en GitHub (el manifest separa la ruta de instalación de la URL de origen
 - Clave de firma del manifest: `~/.warcrafted/manifest-signing-key.pem`.
 - Token de GitHub fine-grained (repo `launcher`, permiso *Contents: read and write*):
   `~/.warcrafted/github-token`, permisos 600. Caduca al año: renovarlo igual y sustituir el archivo.
-- `main` del launcher limpio e igual a `origin/main`: si hay commits sin subir, el script se niega
-  a publicar para no subir trabajo ajeno sin aprobación.
+- Acceso SSH a GitHub (alias del remoto `origin`) para el clon de publicación; no hace falta que el
+  árbol de desarrollo del launcher esté limpio ni subido.
+
+## Clon propio de publicación
+
+El script no toca el árbol donde se desarrolla el launcher. Firma y sube el manifest desde un clon
+suyo, `~/.warcrafted/publicador-launcher` (`--workdir`), que crea la primera vez con el remoto
+`origin` de este repositorio (`--origin`). En cada ejecución, bajo el bloqueo exclusivo, lo deja
+idéntico a `origin/main` (`fetch`, `reset --hard`, `clean`): es un clon que solo usa el script, así
+que descartar restos de una ejecución interrumpida es seguro. El commit del manifest se hace y se
+sube desde ese clon; el trabajo en curso del launcher nunca se publica por error. El código del
+script que se ejecuta es el del árbol de desarrollo desde el que se lanza.
+
+El bloqueo (`~/.warcrafted/publicar-parches.lock`) espera hasta 10 min a otra publicación y se
+libera siempre al terminar, con éxito o con error.
+
+## Contrato con el servidor (`acore-sod`)
+
+- **Lee** `~/Repos/acore-sod/datos/parche-cliente/` (`--source-root`) y nunca escribe en ella salvo
+  el marcador `PUBLICADO`. Solo considera carpetas `AAAAMMDD-sufijo` que no sean enlaces simbólicos.
+- **`LISTO`** (archivo vacío, lo crea el servidor): la carpeta está completa y puede publicarse. Se
+  toma la de nombre más alto con `LISTO` y sin `PUBLICADO`.
+- **`PUBLICADO`** (JSON, lo escribe el script): la carpeta ya se procesó. Contiene `resultado`
+  (`publicado` con `manifestVersion`, `commit`, `fecha` y `assets`, o `sin cambios`). Una carpeta con
+  `PUBLICADO` se ignora.
+- **Salida:** código 0 si publicó o no había nada que publicar; distinto de 0 con un `Error: ...` en
+  stderr si falló. Ante un fallo no se escribe `PUBLICADO` y el servidor puede reintentar con la
+  misma carpeta: es idempotente (los assets ya subidos con el mismo tamaño se reutilizan). Antes del
+  commit del manifest no se publica nada y los jugadores siguen con la versión anterior.
+- Funciona sin intervención: no pide credenciales ni depende de otros procesos (necesita el token,
+  la clave de firma y el SSH de arriba).
 
 ## Comandos
 

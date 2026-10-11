@@ -6,6 +6,23 @@ Todos los cambios relevantes de este proyecto se documentan aquí. El formato si
 
 ## [Sin publicar]
 
+## [0.11.2] - 2026-10-11
+
+Publicación de parches desatendida (parche, herramienta interna).
+
+### Cambiado
+
+- `publicar-parches.sh` firma y sube el manifest desde un clon propio
+  (`~/.warcrafted/publicador-launcher`) sincronizado con `origin/main`, en lugar del árbol de
+  desarrollo: ya no se niega a publicar cuando hay commits locales sin subir o cambios sin confirmar.
+- El bloqueo exclusivo espera hasta 10 min a otra publicación y falla con un mensaje claro si no
+  se libera.
+
+### Añadido
+
+- Documentado el contrato con el servidor (`LISTO`, `PUBLICADO`, códigos de salida) en
+  `docs/contenido/PUBLICAR-PARCHES.md`.
+
 ## [0.11.1] - 2026-10-09
 
 Retoques de interfaz (parche).

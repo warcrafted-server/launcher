@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -13,6 +14,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docs.contenido.publicar_parches import (
+    GitClient,
+    PublishError,
+    ensure_publishing_clone,
     Artifact,
     PublishError,
     assets_to_upload,
@@ -380,6 +384,40 @@ class FakeHttpWorkflowTests(unittest.TestCase):
                 verify_public_assets([artifact], fake, sleeps.append)
             self.assertEqual(fake.calls, 5)
             self.assertEqual(sleeps, [2, 3, 4, 5])
+
+    def test_publishing_clone_is_synced_ignoring_local_state(self) -> None:
+        def git(cwd: Path, *arguments: str) -> str:
+            return subprocess.run(
+                ["git", "-c", "user.name=t", "-c", "user.email=t@t", *arguments],
+                cwd=cwd, check=True, capture_output=True, text=True,
+            ).stdout
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            origin = root / "origin.git"
+            work = root / "work"
+            git(root, "init", "--bare", "-b", "main", str(origin))
+            git(root, "clone", str(origin), str(work))
+            git(work, "checkout", "-B", "main")
+            (work / "a.txt").write_text("1")
+            git(work, "add", "a.txt")
+            git(work, "commit", "-m", "uno")
+            git(work, "push", "origin", "main")
+
+            clone = ensure_publishing_clone(root / "clon", str(origin))
+            (clone / "a.txt").write_text("sucio")
+            (clone / "basura.txt").write_text("x")
+            git(clone, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-am", "local")
+            (work / "a.txt").write_text("2")
+            git(work, "commit", "-am", "dos")
+            git(work, "push", "origin", "main")
+
+            GitClient(clone).check_main_clean_and_pull()
+            self.assertEqual((clone / "a.txt").read_text(), "2")
+            self.assertFalse((clone / "basura.txt").exists())
+            self.assertEqual(git(clone, "rev-list", "--count", "origin/main..HEAD").strip(), "0")
+            with self.assertRaises(PublishError):
+                ensure_publishing_clone(clone, "git@otro:x/y.git")
 
 
 if __name__ == "__main__":

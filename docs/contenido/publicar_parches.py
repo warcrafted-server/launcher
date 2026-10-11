@@ -46,6 +46,9 @@ FOLDER_PATTERN = re.compile(r"^[0-9]{8}-[A-Za-z0-9._-]+$")
 DEFAULT_SOURCE_ROOT = Path.home() / "Repos/acore-sod/datos/parche-cliente"
 DEFAULT_SIGNING_KEY = Path.home() / ".warcrafted/manifest-signing-key.pem"
 DEFAULT_TOKEN_FILE = Path.home() / ".warcrafted/github-token"
+DEFAULT_WORKDIR = Path.home() / ".warcrafted/publicador-launcher"
+LOCK_PATH = Path.home() / ".warcrafted/publicar-parches.lock"
+LOCK_WAIT_SECONDS = 600
 MANIFEST_RELATIVE_PATH = Path("docs/contenido/manifest.json")
 MPQ_HEADER = b"MPQ\x1a"
 
@@ -173,20 +176,15 @@ class GitClient:
         self.repository_root = repository_root
 
     def check_main_clean_and_pull(self) -> None:
-        branch = self._run("branch", "--show-current").strip()
-        if branch != "main":
-            raise PublishError("el repositorio del launcher debe estar en la rama main")
-        dirty = self._run("status", "--porcelain", "--untracked-files=no")
-        if dirty.strip():
-            raise PublishError("el repositorio del launcher tiene cambios versionados sin confirmar")
-        self._run("pull", "--ff-only")
-        # El push final sube todo lo que haya en main: si hubiera commits locales ajenos se
-        # publicarían sin aprobación, y si un push anterior falló el manifest quedaría sin subir.
-        ahead = self._run("rev-list", "--count", "origin/main..HEAD").strip()
-        if ahead != "0":
-            raise PublishError(
-                f"main tiene {ahead} commit(s) sin subir a origin; publícalos o resuélvelo antes"
-            )
+        """Deja el clon propio de publicación idéntico a origin/main.
+
+        Es un clon que solo usa este script: descartar cualquier resto de una ejecución
+        anterior interrumpida es seguro y evita depender del estado del árbol de desarrollo.
+        """
+        self._run("fetch", "--prune", "origin", "main")
+        self._run("checkout", "-f", "-B", "main", "origin/main")
+        self._run("reset", "--hard", "origin/main")
+        self._run("clean", "-fd")
 
     def commit_manifest(self, manifest_path: Path, message: str, push: bool) -> str:
         relative_path = manifest_path.relative_to(self.repository_root)
@@ -244,6 +242,43 @@ class Artifact:
         )
 
 
+def ensure_publishing_clone(workdir: Path, origin_url: str) -> Path:
+    """Crea el clon propio de publicación si no existe y comprueba que apunta al origen."""
+    def git(*arguments: str, cwd: Path | None = None) -> str:
+        try:
+            return subprocess.run(
+                ["git", *arguments], cwd=cwd, check=True, capture_output=True, text=True
+            ).stdout
+        except FileNotFoundError:
+            raise PublishError("no se encontró git en PATH") from None
+        except subprocess.CalledProcessError as error:
+            detail = (error.stderr or "").strip().splitlines()
+            suffix = f": {detail[-1]}" if detail else ""
+            raise PublishError(f"falló git {arguments[0]}{suffix}") from None
+
+    if not (workdir / ".git").exists():
+        if workdir.exists() and any(workdir.iterdir()):
+            raise PublishError(f"{workdir} existe y no es un clon git; bórralo o muévelo")
+        workdir.parent.mkdir(parents=True, exist_ok=True)
+        git("clone", "--branch", "main", origin_url, str(workdir))
+    elif git("remote", "get-url", "origin", cwd=workdir).strip() != origin_url:
+        raise PublishError(f"el clon {workdir} apunta a otro origen que {origin_url}")
+    return workdir
+
+
+def default_origin_url() -> str:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(SCRIPT_DIRECTORY), "remote", "get-url", "origin"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        raise PublishError("no se pudo averiguar el remoto origin del repositorio del launcher") from None
+    return result.stdout.strip()
+
+
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Publica los parches de cliente preparados y actualiza el manifest firmado."
@@ -254,6 +289,13 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="analiza los cambios sin publicarlos")
     parser.add_argument("--no-push", action="store_true", help="omite git push origin main")
     parser.add_argument("--signing-key", type=Path, default=DEFAULT_SIGNING_KEY)
+    parser.add_argument(
+        "--workdir",
+        type=Path,
+        default=DEFAULT_WORKDIR,
+        help="clon propio donde se firma y sube el manifest (se crea solo)",
+    )
+    parser.add_argument("--origin", help="URL SSH del remoto; por defecto, la de este repositorio")
     parser.add_argument("--token-file", type=Path, default=DEFAULT_TOKEN_FILE)
     args = parser.parse_args()
     if args.keep < 1:
@@ -269,10 +311,22 @@ def exclusive_lock(lock_path: Path) -> Iterator[None]:
     except OSError:
         raise PublishError("no se pudo adquirir el bloqueo exclusivo de publicación") from None
     with lock_file:
-        try:
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-        except OSError:
-            raise PublishError("no se pudo adquirir el bloqueo exclusivo de publicación") from None
+        deadline = time.monotonic() + LOCK_WAIT_SECONDS
+        while True:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise PublishError(
+                        "otra publicación sigue en curso tras esperar "
+                        f"{LOCK_WAIT_SECONDS // 60} min; reintenta más tarde"
+                    ) from None
+                time.sleep(2)
+            except OSError:
+                raise PublishError(
+                    "no se pudo adquirir el bloqueo exclusivo de publicación"
+                ) from None
         yield
 
 
@@ -663,16 +717,18 @@ def publish(
     signer=sign_and_verify,
     sleeper=time.sleep,
 ) -> int:
-    repository_root = repository_root or Path(__file__).resolve().parents[2]
-    manifest_path = repository_root / MANIFEST_RELATIVE_PATH
     source_root = args.source_root.expanduser()
     print("Paso 1: adquiriendo bloqueo exclusivo")
-    with exclusive_lock(Path.home() / ".warcrafted/publicar-parches.lock"):
-        if not args.dry_run:
-            print("Paso 2: comprobando y actualizando el repositorio del launcher")
+    with exclusive_lock(LOCK_PATH):
+        if repository_root is None:
+            print("Paso 2: sincronizando el clon propio de publicación con origin/main")
+            repository_root = ensure_publishing_clone(
+                args.workdir.expanduser(), args.origin or default_origin_url()
+            )
             git_factory(repository_root).check_main_clean_and_pull()
         else:
-            print("Paso 2: dry-run, sin ejecutar comandos Git")
+            print("Paso 2: repositorio indicado, sin sincronizar")
+        manifest_path = repository_root / MANIFEST_RELATIVE_PATH
 
         folder = select_source_folder(source_root, args.folder)
         folder_name = folder.name
