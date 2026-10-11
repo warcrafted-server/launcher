@@ -324,12 +324,12 @@
       "kind": "clientPatch",
       "path": "Data/esES/patch-esES-Z.MPQ",
       "role": "required",
-      "sha256": "a7d7d8bbea5cedaabb5e83cca73589242962b685fad220a14a09249b1b342232",
-      "sizeBytes": 6338284,
+      "sha256": "1209357f37171b8e0c749ebf9c9354ebf1e1dc6895b21fa4c72217e347475968",
+      "sizeBytes": 6383276,
       "source": {
-        "compressedSizeBytes": 6338284,
+        "compressedSizeBytes": 6383276,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z-20261008-druida.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z-20261011-druida2.MPQ"
       }
     },
     {
@@ -438,12 +438,12 @@
       "kind": "clientPatch",
       "path": "Data/patch-Z.MPQ",
       "role": "required",
-      "sha256": "1af9f718855c77c9fa54ea794b2b4454d7646a4663fe48dd2d49f9651c8051a9",
-      "sizeBytes": 1654224,
+      "sha256": "fa8d1102a83ab327fa11160adcbc1ac610028728a809c217551e5f6a160ba703",
+      "sizeBytes": 1655433,
       "source": {
-        "compressedSizeBytes": 1654224,
+        "compressedSizeBytes": 1655433,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z-20261008-druida.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z-20261011-druida2.MPQ"
       }
     },
     {
@@ -594,14 +594,14 @@
       }
     }
   ],
-  "manifestVersion": 3,
+  "manifestVersion": 4,
   "minLauncherVersion": "0.1.0",
-  "publishedAt": "2026-10-08T17:43:43Z",
+  "publishedAt": "2026-10-11T17:17:15Z",
   "realm": "icetracks",
   "schemaVersion": 1,
   "signature": {
     "keyId": "warcrafted-manifest-2026",
     "algorithm": "ed25519",
-    "value": "1b3d43f8d9d735a9f869e75569408c7a8e3d30592c612de74609df285d610cd0da4367eb17ae039d9d9577da435c4be79e96e57fb2ab626a7a0cb7b6e7f3c704"
+    "value": "441164131a1a9f382c879303d67139c87a794ff2e4d046dd8bdf786c7ae97bc1cb4de52af930a5aa7f2996db34a5e02fa8cfce0e7e01b163a3d89ab6fc18bf0e"
   }
 }
