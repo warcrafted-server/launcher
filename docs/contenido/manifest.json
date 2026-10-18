@@ -324,12 +324,12 @@
       "kind": "clientPatch",
       "path": "Data/esES/patch-esES-Z.MPQ",
       "role": "required",
-      "sha256": "1209357f37171b8e0c749ebf9c9354ebf1e1dc6895b21fa4c72217e347475968",
-      "sizeBytes": 6383276,
+      "sha256": "190ff17c50af57836c5f2e489ee125e86e77be87a0289a69b386388430601993",
+      "sizeBytes": 6402649,
       "source": {
-        "compressedSizeBytes": 6383276,
+        "compressedSizeBytes": 6402649,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z-20261011-druida2.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-esES-Z-20261018-druida3.MPQ"
       }
     },
     {
@@ -438,12 +438,12 @@
       "kind": "clientPatch",
       "path": "Data/patch-Z.MPQ",
       "role": "required",
-      "sha256": "fa8d1102a83ab327fa11160adcbc1ac610028728a809c217551e5f6a160ba703",
-      "sizeBytes": 1655433,
+      "sha256": "c3df5571a6c2a71d8f5d1f7d40cb2a4ec113a2902d9c50e4a70f40b6b1922044",
+      "sizeBytes": 1656053,
       "source": {
-        "compressedSizeBytes": 1655433,
+        "compressedSizeBytes": 1656053,
         "compression": "none",
-        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z-20261011-druida2.MPQ"
+        "url": "https://github.com/warcrafted-server/launcher/releases/download/patch/patch-Z-20261018-druida3.MPQ"
       }
     },
     {
@@ -594,14 +594,14 @@
       }
     }
   ],
-  "manifestVersion": 4,
+  "manifestVersion": 5,
   "minLauncherVersion": "0.1.0",
-  "publishedAt": "2026-10-11T17:17:15Z",
+  "publishedAt": "2026-10-18T18:13:00Z",
   "realm": "icetracks",
   "schemaVersion": 1,
   "signature": {
     "keyId": "warcrafted-manifest-2026",
     "algorithm": "ed25519",
-    "value": "441164131a1a9f382c879303d67139c87a794ff2e4d046dd8bdf786c7ae97bc1cb4de52af930a5aa7f2996db34a5e02fa8cfce0e7e01b163a3d89ab6fc18bf0e"
+    "value": "2e064bdd76e4550db113c310ee43be49952a3846b3ee3f53710073869cd49cc6b98864090642d4507e8e5ad8b225e7b897321296e121920da53e214b2fc43a05"
   }
 }
